@@ -6,6 +6,7 @@
 
   "CHAIN_ID": 97,
   "CHAIN_NAME": "BNB Smart Chain Testnet",
+  "RPC_URL": "https://data-seed-prebsc-1-s1.binance.org:8545/",
   "EXPLORER_BASE": "https://testnet.bscscan.com",
 
   "TOKEN_ADDRESS": "0x32de691C1e47A9F3b25A64C63DAd55fC6CECc1Cc",
@@ -17,72 +18,16 @@
 
   "PRESALE_START_TIME": 1765993800,
 
-  "WALLETCONNECT_PROJECT_ID": "a15756c4fe18dc4428b06b6585da4387",
-
   "PHASES": [
-    {
-      "name": "Phase 1",
-      "duration_days": 7,
-      "price_idr_per_gobg": 1000,
-      "usdt_per_gobg": 0.066667,
-      "gobg_per_1_usdt": 15.0
-    },
-    {
-      "name": "Phase 2",
-      "duration_days": 7,
-      "price_idr_per_gobg": 1500,
-      "usdt_per_gobg": 0.1,
-      "gobg_per_1_usdt": 10.0
-    },
-    {
-      "name": "Phase 3",
-      "duration_days": 7,
-      "price_idr_per_gobg": 2000,
-      "usdt_per_gobg": 0.133333,
-      "gobg_per_1_usdt": 7.5
-    },
-    {
-      "name": "Phase 4",
-      "duration_days": 7,
-      "price_idr_per_gobg": 2500,
-      "usdt_per_gobg": 0.166667,
-      "gobg_per_1_usdt": 6.0
-    },
-    {
-      "name": "Phase 5",
-      "duration_days": 7,
-      "price_idr_per_gobg": 3000,
-      "usdt_per_gobg": 0.2,
-      "gobg_per_1_usdt": 5.0
-    },
-    {
-      "name": "Phase 6",
-      "duration_days": 7,
-      "price_idr_per_gobg": 3500,
-      "usdt_per_gobg": 0.233333,
-      "gobg_per_1_usdt": 4.285714
-    },
-    {
-      "name": "Phase 7",
-      "duration_days": 7,
-      "price_idr_per_gobg": 4000,
-      "usdt_per_gobg": 0.266667,
-      "gobg_per_1_usdt": 3.75
-    },
-    {
-      "name": "Phase 8",
-      "duration_days": 7,
-      "price_idr_per_gobg": 4500,
-      "usdt_per_gobg": 0.3,
-      "gobg_per_1_usdt": 3.333333
-    },
-    {
-      "name": "Phase 9 (Discount)",
-      "duration_days": 4,
-      "price_idr_per_gobg": 1000,
-      "usdt_per_gobg": 0.066667,
-      "gobg_per_1_usdt": 15.0
-    }
+    { "name": "Phase 1", "duration_days": 7, "price_idr_per_gobg": 1000, "usdt_per_gobg": 0.066667, "gobg_per_1_usdt": 15.0 },
+    { "name": "Phase 2", "duration_days": 7, "price_idr_per_gobg": 1500, "usdt_per_gobg": 0.1,      "gobg_per_1_usdt": 10.0 },
+    { "name": "Phase 3", "duration_days": 7, "price_idr_per_gobg": 2000, "usdt_per_gobg": 0.133333, "gobg_per_1_usdt": 7.5 },
+    { "name": "Phase 4", "duration_days": 7, "price_idr_per_gobg": 2500, "usdt_per_gobg": 0.166667, "gobg_per_1_usdt": 6.0 },
+    { "name": "Phase 5", "duration_days": 7, "price_idr_per_gobg": 3000, "usdt_per_gobg": 0.2,      "gobg_per_1_usdt": 5.0 },
+    { "name": "Phase 6", "duration_days": 7, "price_idr_per_gobg": 3500, "usdt_per_gobg": 0.233333, "gobg_per_1_usdt": 4.285714 },
+    { "name": "Phase 7", "duration_days": 7, "price_idr_per_gobg": 4000, "usdt_per_gobg": 0.266667, "gobg_per_1_usdt": 3.75 },
+    { "name": "Phase 8", "duration_days": 7, "price_idr_per_gobg": 4500, "usdt_per_gobg": 0.3,      "gobg_per_1_usdt": 3.333333 },
+    { "name": "Phase 9 (Discount)", "duration_days": 4, "price_idr_per_gobg": 1000, "usdt_per_gobg": 0.066667, "gobg_per_1_usdt": 15.0 }
   ],
 
   "IMPLIED_USDT_IDR_RATE": 15000,
