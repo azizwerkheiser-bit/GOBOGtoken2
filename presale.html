@@ -76,7 +76,9 @@
     <nav class="nav">
       <a href="./index.html">Home</a>
       <a href="#" id="explorerPresale" target="_blank" rel="noreferrer">Explorer</a>
-      <a class="btn small" href="#" id="connectBtn">Connect</a>
+      <button class="btn small" id="connectBtn">Connect</button>
+<button class="btn small ghost" id="connectQrBtn">Connect (QR)</button>
+
     </nav>
   </header>
 
@@ -156,6 +158,93 @@
   </footer>
 
   <script src="./app-config.js"></script>
+  <script type="module">
+  import { createWeb3Modal, defaultConfig } from 'https://unpkg.com/@web3modal/ethers@4/dist/index.js';
+  import EthereumProvider from "https://unpkg.com/@walletconnect/ethereum-provider@2.13.3/dist/index.es.js";
+
+  const cfg = await loadGobogConfig();
+  const projectId = cfg.WALLETCONNECT_PROJECT_ID;
+
+  if (!projectId || projectId.includes("PASTE")) {
+    console.warn("Missing WALLETCONNECT_PROJECT_ID in config.json");
+  }
+
+  const metadata = {
+    name: "GOBOG Presale",
+    description: "GOBOG presale dApp",
+    url: window.location.origin,
+    icons: [window.location.origin + "/assets/logo.png"]
+  };
+
+  // Build chains based on config (mainnet/testnet)
+  const chains = [];
+  if (Number(cfg.CHAIN_ID) === 56) {
+    chains.push({
+      chainId: 56,
+      name: "BNB Smart Chain",
+      currency: "BNB",
+      explorerUrl: "https://bscscan.com",
+      rpcUrl: "https://bsc-dataseed.binance.org"
+    });
+  } else if (Number(cfg.CHAIN_ID) === 97) {
+    chains.push({
+      chainId: 97,
+      name: "BNB Smart Chain Testnet",
+      currency: "tBNB",
+      explorerUrl: "https://testnet.bscscan.com",
+      rpcUrl: "https://data-seed-prebsc-1-s1.binance.org:8545"
+    });
+  } else {
+    // fallback: still allow, but better to keep cfg.CHAIN_ID = 56 or 97
+    chains.push({
+      chainId: Number(cfg.CHAIN_ID),
+      name: cfg.CHAIN_NAME || "Custom Chain",
+      currency: "BNB",
+      explorerUrl: cfg.EXPLORER_BASE || "",
+      rpcUrl: ""
+    });
+  }
+
+  const ethersConfig = defaultConfig({ metadata });
+
+  // 1) Web3Modal: mobile list wallets + deeplink, desktop QR auto
+  const modal = createWeb3Modal({
+    projectId,
+    ethersConfig,
+    chains,
+    enableAnalytics: false
+  });
+
+  // When Web3Modal connects, it gives an EIP-1193 provider
+  modal.subscribeProvider(async (provider) => {
+    if (!provider) return;
+    window.__EIP1193_PROVIDER__ = provider;
+    window.__onWalletConnected__ && window.__onWalletConnected__();
+  });
+
+  // Open Web3Modal on button click
+  document.getElementById("connectBtn")?.addEventListener("click", async (e) => {
+    e.preventDefault();
+    await modal.open();
+  });
+
+  // 2) QR-only: force QR modal (great for desktop or users who prefer scanning)
+  let wcProvider;
+  document.getElementById("connectQrBtn")?.addEventListener("click", async (e) => {
+    e.preventDefault();
+
+    wcProvider = await EthereumProvider.init({
+      projectId,
+      chains: [Number(cfg.CHAIN_ID)],
+      showQrModal: true
+    });
+
+    await wcProvider.connect();
+    window.__EIP1193_PROVIDER__ = wcProvider;
+    window.__onWalletConnected__ && window.__onWalletConnected__();
+  });
+</script>
+
   <script src="./presale.js"></script>
 </body>
 </html>
