@@ -201,3 +201,64 @@ a:hover{ text-decoration:underline; }
   border-color: rgba(245,197,66,.70);
   box-shadow: 0 0 0 6px rgba(245,197,66,.10);
 }
+.addr-row{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  flex-wrap:wrap;
+}
+.addr{
+  padding:6px 10px;
+  border-radius:12px;
+  border:1px solid rgba(245,197,66,.18);
+  background: rgba(255,255,255,.03);
+  max-width: 360px;
+  overflow:hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gallery{
+  display:grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap:12px;
+}
+.gitem{
+  display:block;
+  border-radius:16px;
+  overflow:hidden;
+  border:1px solid rgba(245,197,66,.18);
+  background: rgba(255,255,255,.02);
+}
+.gitem img{
+  width:100%;
+  height:170px;
+  object-fit:cover;
+  display:block;
+  transition: transform .18s ease;
+}
+.gitem:hover img{ transform: scale(1.03); }
+
+.faq{
+  padding:10px 0;
+  border-top:1px solid rgba(59,42,18,.75);
+}
+.faq:first-child{ border-top:0; }
+.faq summary{
+  cursor:pointer;
+  font-weight:800;
+  color: rgba(255,247,230,.95);
+}
+.faq p{
+  margin:10px 0 0;
+  color: rgba(255,247,230,.90);
+}
+
+@media (max-width: 900px){
+  .gallery{ grid-template-columns: repeat(2, 1fr); }
+  .gitem img{ height:160px; }
+}
+@media (max-width: 520px){
+  .gallery{ grid-template-columns: 1fr; }
+}
+
