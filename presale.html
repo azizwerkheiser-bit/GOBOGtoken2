@@ -244,6 +244,74 @@
     window.__onWalletConnected__ && window.__onWalletConnected__();
   });
 </script>
+<script src="https://unpkg.com/ethers@6.14.0/dist/ethers.umd.min.js"></script>
+<script src="https://unpkg.com/@walletconnect/ethereum-provider@2.13.3/dist/index.umd.js"></script>
+<script>
+(async () => {
+  // load config.json (punyamu sudah ada di app-config.js)
+  const cfg = await loadGobogConfig();
+
+  // IMPORTANT: isi ini di config.json
+  // "WALLETCONNECT_PROJECT_ID": "xxxx"
+  const projectId = cfg.WALLETCONNECT_PROJECT_ID;
+
+  let wcProvider = null;
+
+  function bindBtn(id, fn){
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener("click", (e) => {
+      e.preventDefault();
+      fn().catch(err => {
+        console.error(err);
+        alert("Connect failed: " + (err?.message || String(err)));
+      });
+    });
+  }
+
+  async function connectInjected(){
+    if (!window.ethereum) {
+      throw new Error("No injected wallet found. Use Connect (QR) or open via wallet browser.");
+    }
+    window.__EIP1193_PROVIDER__ = window.ethereum;
+    if (window.__onWalletConnected__) await window.__onWalletConnected__();
+  }
+
+  async function connectWalletConnect(){
+    if (!projectId || projectId.includes("PASTE")) {
+      throw new Error("Missing WALLETCONNECT_PROJECT_ID in config.json");
+    }
+
+    if (!wcProvider) {
+      wcProvider = await window.EthereumProvider.init({
+        projectId,
+        chains: [Number(cfg.CHAIN_ID)],   // 56 mainnet / 97 testnet
+        showQrModal: true
+      });
+
+      wcProvider.on("disconnect", () => {
+        window.__EIP1193_PROVIDER__ = null;
+      });
+    }
+
+    await wcProvider.connect(); // mobile: wallet list/deeplink, desktop: QR
+    window.__EIP1193_PROVIDER__ = wcProvider;
+    if (window.__onWalletConnected__) await window.__onWalletConnected__();
+  }
+
+  // Connect: coba injected dulu, kalau nggak ada -> WalletConnect
+  bindBtn("connectBtn", async () => {
+    if (window.ethereum) return connectInjected();
+    return connectWalletConnect();
+  });
+
+  // Connect (QR): selalu WalletConnect modal
+  bindBtn("connectQrBtn", async () => {
+    return connectWalletConnect();
+  });
+
+})();
+</script>
 
   <script src="./presale.js"></script>
 </body>
