@@ -301,9 +301,10 @@
 
   // Connect: coba injected dulu, kalau nggak ada -> WalletConnect
   bindBtn("connectBtn", async () => {
-    if (window.ethereum) return connectInjected();
-    return connectWalletConnect();
-  });
+  const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  if (!isMobile && window.ethereum) return connectInjected();
+  return connectWalletConnect();
+});
 
   // Connect (QR): selalu WalletConnect modal
   bindBtn("connectQrBtn", async () => {
