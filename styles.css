@@ -39,10 +39,10 @@ a:hover{ text-decoration:underline; }
   border-bottom: 1px solid rgba(59,42,18,.75);
   z-index:10;
 }
-.brand{ display:flex; align-items:center; gap:12px; }
+.brand{ display:flex; align-items:center; gap:14px; }
 .logo{
-  width:64px;
-  height:64px;
+  width:72px;
+  height:72px;
   border-radius:14px;
   background: transparent;
   border: 1px solid rgba(245,197,66,.22);
