@@ -3,15 +3,22 @@
   "SYMBOL": "GOBG",
   "TWITTER": "@gobog",
   "TWITTER_URL": "https://twitter.com/gobog",
+
   "CHAIN_ID": 97,
   "CHAIN_NAME": "BNB Smart Chain Testnet",
   "EXPLORER_BASE": "https://testnet.bscscan.com",
+
   "TOKEN_ADDRESS": "0x32de691C1e47A9F3b25A64C63DAd55fC6CECc1Cc",
   "PRESALE_ADDRESS": "0xa5AE6e80f0D4226C8169ED1171038a182f06070C",
   "USDT_ADDRESS": "0xecB206362Fa104cC33EaFbfb941EbE0348A68791",
+
   "USDT_DECIMALS": 18,
   "TOKEN_DECIMALS": 18,
+
   "PRESALE_START_TIME": 1765993800,
+
+  "WALLETCONNECT_PROJECT_ID": "PASTE_PROJECT_ID_HERE",
+
   "PHASES": [
     {
       "name": "Phase 1",
@@ -76,9 +83,8 @@
       "usdt_per_gobg": 0.066667,
       "gobg_per_1_usdt": 15.0
     }
-    "WALLETCONNECT_PROJECT_ID": "PASTE_PROJECT_ID_HERE"
-
   ],
+
   "IMPLIED_USDT_IDR_RATE": 15000,
   "USE_PHASE_RATE_FOR_ESTIMATE": true
 }
