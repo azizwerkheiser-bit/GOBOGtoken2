@@ -200,21 +200,19 @@
     }
 
     // WalletConnect modal will handle QR on desktop + wallet list / deep link on mobile
-    const wcProvider = await WC.init({
-      projectId: cfg.WALLETCONNECT_PROJECT_ID,
-      chains: [Number(cfg.CHAIN_ID)],
-      rpcMap: { [Number(cfg.CHAIN_ID)]: cfg.RPC_URL },
-      showQrModal: true,
-      qrModalOptions: {
-        themeMode: "dark"
-      },
-      metadata: {
-        name: `${cfg.PROJECT_NAME || "GOBOG"} Presale`,
-        description: "GOBOG presale dApp",
-        url: cfg.SITE_URL || window.location.origin,
-        icons: [cfg.SITE_ICON || ""].filter(Boolean)
-      }
-    });
+   // ganti semua window.EthereumProvider jadi ini:
+const WCProvider = window.EthereumProvider || window.WalletConnectEthereumProvider;
+
+if (!WCProvider) {
+  throw new Error("WalletConnect provider script not loaded (EthereumProvider missing). Check the <script src=...> URL.");
+}
+
+// lalu pakai:
+wcProvider = await WCProvider.init({
+  projectId,
+  chains: [Number(cfg.CHAIN_ID)],
+  showQrModal: true
+});
 
     // If you want to force showing QR modal even on some environments:
     // call connect() explicitly
