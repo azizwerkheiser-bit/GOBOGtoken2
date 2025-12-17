@@ -9,6 +9,61 @@
   <link rel="icon" href="./assets/gobog.svg" />
   <script src="https://unpkg.com/ethers@6.14.0/dist/ethers.umd.min.js"></script>
 </head>
+  <script src="https://unpkg.com/ethers@6.14.0/dist/ethers.umd.min.js"></script>
+
+<script type="module">
+  import { createWeb3Modal, defaultConfig } from 'https://unpkg.com/@web3modal/ethers@4/dist/index.js';
+
+  // 1) isi projectId WalletConnect (gratis)
+  const projectId = "PASTE_YOUR_WALLETCONNECT_PROJECT_ID";
+
+  // 2) metadata dApp
+  const metadata = {
+    name: "GOBOG Presale",
+    description: "GOBOG presale dApp",
+    url: window.location.origin,
+    icons: [window.location.origin + "/assets/logo.png"]
+  };
+
+  // 3) chain BSC
+  const bsc = {
+    chainId: 56,
+    name: 'BNB Smart Chain',
+    currency: 'BNB',
+    explorerUrl: 'https://bscscan.com',
+    rpcUrl: 'https://bsc-dataseed.binance.org'
+  };
+
+  // kalau testnet tambahin juga (opsional)
+  const bscTestnet = {
+    chainId: 97,
+    name: 'BNB Smart Chain Testnet',
+    currency: 'tBNB',
+    explorerUrl: 'https://testnet.bscscan.com',
+    rpcUrl: 'https://data-seed-prebsc-1-s1.binance.org:8545'
+  };
+
+  const ethersConfig = defaultConfig({ metadata });
+
+  createWeb3Modal({
+    ethersConfig,
+    chains: [bsc, bscTestnet],
+    projectId,
+    enableAnalytics: false
+  });
+
+  // tombol connect kamu tinggal panggil: window.openWeb3Modal()
+  window.openWeb3Modal = async () => {
+    const modal = document.querySelector('w3m-modal');
+    // web3modal v4 otomatis muncul saat dipanggil:
+    document.querySelector('w3m-button')?.click();
+  };
+</script>
+
+<!-- tombol siap pakai -->
+<w3m-button></w3m-button>
+<w3m-modal></w3m-modal>
+
 <body>
   <header class="container header">
     <div class="brand">
