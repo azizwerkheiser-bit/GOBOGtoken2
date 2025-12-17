@@ -1,12 +1,15 @@
-(async function(){
+(async function () {
   const $ = (id) => document.getElementById(id);
+
+  // --- logger (safe even if #log not found) ---
   const logEl = $("log");
   const log = (s) => {
-    const ts = new Date().toISOString().replace('T',' ').replace('Z','');
-    logEl.textContent = `[${ts}] ${s}\n` + logEl.textContent;
+    const ts = new Date().toISOString().replace("T", " ").replace("Z", "");
+    if (logEl) logEl.textContent = `[${ts}] ${s}\n` + logEl.textContent;
+    console.log(`[${ts}] ${s}`);
   };
 
-  function formatDDHHMMSS(totalSeconds){
+  function formatDDHHMMSS(totalSeconds) {
     const s = Math.max(0, Math.floor(totalSeconds));
     const dd = Math.floor(s / 86400);
     const hh = Math.floor((s % 86400) / 3600);
@@ -16,21 +19,28 @@
     return `${pad(dd)}:${pad(hh)}:${pad(mm)}:${pad(ss)}`;
   }
 
-  function fmt(x, d){ try { return ethers.formatUnits(x, d); } catch(e){ return "-"; } }
-  function parse(x, d){ return ethers.parseUnits(x, d); }
+  function fmt(x, d) {
+    try { return ethers.formatUnits(x, d); } catch (_) { return "-"; }
+  }
+  function parse(x, d) {
+    return ethers.parseUnits(x, d);
+  }
 
+  // --- load config ---
   let cfg;
   try {
     cfg = await loadGobogConfig();
   } catch (e) {
-    log("Config error: " + (e?.message || String(e)));
-    alert("Failed to load config.json. Make sure it exists and is valid JSON.");
+    const msg = e?.message || String(e);
+    log("Config error: " + msg);
+    alert("Failed to load config.json. Make sure it exists and is valid JSON.\n\n" + msg);
     return;
   }
 
   const ex = $("explorerPresale");
   if (ex) ex.href = cfg.PRESALE_EXPLORER_URL || "#";
 
+  // --- ABIs ---
   const erc20Abi = [
     "function balanceOf(address) view returns (uint256)",
     "function allowance(address owner, address spender) view returns (uint256)",
@@ -46,11 +56,14 @@
     "function canFinalizeNow() view returns (bool)"
   ];
 
+  // --- runtime state ---
   let provider, signer, userAddr;
   let usdt, presale;
 
-  // ---- Phase schedule (UI) ----
-  function buildTimeline(){
+  // =========================
+  // Phase schedule (UI)
+  // =========================
+  function buildTimeline() {
     const phases = cfg.PHASES || [];
     const start = Number(cfg.PRESALE_START_TIME || 0);
     if (!start || phases.length === 0) return { start, timeline: [] };
@@ -66,36 +79,39 @@
     return { start, timeline };
   }
 
-  function getActivePhase(now){
+  function getActivePhase(now) {
     const { start, timeline } = buildTimeline();
     if (!start || timeline.length === 0) return { idx: -1, phase: null, phaseEnd: start || 0, timeline };
+
     const totalEnd = timeline[timeline.length - 1].end;
     if (now < start) return { idx: -1, phase: null, phaseEnd: start, timeline };
-    const idx = timeline.findIndex(seg => now >= seg.start && now < seg.end);
+
+    const idx = timeline.findIndex((seg) => now >= seg.start && now < seg.end);
     if (idx === -1 && now >= totalEnd) return { idx: timeline.length, phase: null, phaseEnd: totalEnd, timeline };
+
     return { idx, phase: timeline[idx], phaseEnd: timeline[idx].end, timeline };
   }
 
-  function renderPhases(){
+  function renderPhases() {
     const listEl = $("phaseList");
     const activeEl = $("phaseActive");
     const cdEl = $("phaseCountdown");
     if (!listEl || !activeEl || !cdEl) return;
 
-    const now = Math.floor(Date.now()/1000);
+    const now = Math.floor(Date.now() / 1000);
     const info = getActivePhase(now);
 
-    if (!cfg.PRESALE_START_TIME || !info.timeline.length){
+    if (!cfg.PRESALE_START_TIME || !info.timeline.length) {
       activeEl.textContent = "Not configured";
       cdEl.textContent = "--:--:--:--";
       listEl.innerHTML = "";
       return;
     }
 
-    if (info.idx < 0){
+    if (info.idx < 0) {
       activeEl.textContent = "Not started";
       cdEl.textContent = formatDDHHMMSS(info.phaseEnd - now);
-    } else if (info.idx >= info.timeline.length){
+    } else if (info.idx >= info.timeline.length) {
       activeEl.textContent = "Ended (waiting for finalize)";
       cdEl.textContent = formatDDHHMMSS(info.phaseEnd - now);
     } else {
@@ -104,35 +120,36 @@
       cdEl.textContent = formatDDHHMMSS(info.phaseEnd - now);
     }
 
-   listEl.innerHTML = info.timeline.map((p, i) => {
-  let cls = "future";
-  if (info.idx >= info.timeline.length) cls = "past";
-  else if (i < info.idx) cls = "past";
-  else if (i === info.idx) cls = "current";
-  if (info.idx < 0) cls = "future";
+    listEl.innerHTML = info.timeline
+      .map((p, i) => {
+        let cls = "future";
+        if (info.idx >= info.timeline.length) cls = "past";
+        else if (i < info.idx) cls = "past";
+        else if (i === info.idx) cls = "current";
+        if (info.idx < 0) cls = "future";
 
-  const isFuture = cls === "future";
-  const shownTokensPerUsdt = isFuture ? "X.XXXX" : p.gobg_per_1_usdt;
-  const shownUsdtPerGobg  = isFuture ? "X.XXXX" : p.usdt_per_gobg;
+        const isFuture = cls === "future";
+        const shownTokensPerUsdt = isFuture ? "X.XXXX" : p.gobg_per_1_usdt;
+        const shownUsdtPerGobg = isFuture ? "X.XXXX" : p.usdt_per_gobg;
 
-  return `
-    <div class="phase ${cls}">
-      <div class="left">
-        <div class="name">${p.name}</div>
-        <div class="meta">${p.durDays} days • 1 USDT = ${shownTokensPerUsdt} GOBG</div>
-      </div>
-      <div class="price">${shownUsdtPerGobg} USDT / GOBG</div>
-    </div>
-  `;
-}).join("");
-
+        return `
+          <div class="phase ${cls}">
+            <div class="left">
+              <div class="name">${p.name}</div>
+              <div class="meta">${p.durDays} days • 1 USDT = ${shownTokensPerUsdt} GOBG</div>
+            </div>
+            <div class="price">${shownUsdtPerGobg} USDT / GOBG</div>
+          </div>
+        `;
+      })
+      .join("");
   }
 
   renderPhases();
   setInterval(renderPhases, 1000);
 
-  function getUiTokensPerUsdt(){
-    const now = Math.floor(Date.now()/1000);
+  function getUiTokensPerUsdt() {
+    const now = Math.floor(Date.now() / 1000);
     const info = getActivePhase(now);
     if (info.idx >= 0 && info.idx < info.timeline.length) {
       const v = Number(info.phase?.gobg_per_1_usdt);
@@ -141,150 +158,194 @@
     return 15;
   }
 
-  // ---- Wallet / Contracts ----
-  async function ensureNetwork(providerSource){
-  if (!providerSource) throw new Error("Wallet provider not found. Use Connect or Connect (QR).");
-  const mm = new ethers.BrowserProvider(providerSource);
-  const net = await mm.getNetwork();
-  $("netName").textContent = `${cfg.CHAIN_NAME} (cfg ${cfg.CHAIN_ID}) • yours: ${Number(net.chainId)}`;
-  if (Number(net.chainId) !== Number(cfg.CHAIN_ID)) {
-    log(`Network mismatch. Switch to chainId ${cfg.CHAIN_ID}.`);
+  // =========================
+  // Wallet / Contracts
+  // =========================
+  async function ensureNetwork(providerSource) {
+    if (!providerSource) throw new Error("Wallet provider not found. Use Connect or Connect (QR).");
+
+    const mm = new ethers.BrowserProvider(providerSource);
+    const net = await mm.getNetwork();
+
+    const netNameEl = $("netName");
+    if (netNameEl) {
+      netNameEl.textContent = `${cfg.CHAIN_NAME} (cfg ${cfg.CHAIN_ID}) • yours: ${Number(net.chainId)}`;
+    }
+
+    if (Number(net.chainId) !== Number(cfg.CHAIN_ID)) {
+      log(`Network mismatch. Switch to chainId ${cfg.CHAIN_ID}.`);
+      // We don't force switch here because WalletConnect/injected behavior can vary.
+    }
+    return mm;
   }
-  return mm;
-}
 
-async function connectWith(providerSource){
-  provider = await ensureNetwork(providerSource);
+  async function connectWith(providerSource) {
+    provider = await ensureNetwork(providerSource);
 
-  // request accounts (works for injected + walletconnect)
-  try { await provider.send("eth_requestAccounts", []); } catch(_) {}
+    // request accounts (works for injected + walletconnect)
+    try { await provider.send("eth_requestAccounts", []); } catch (_) {}
 
-  signer = await provider.getSigner();
-  userAddr = await signer.getAddress();
-  $("wallet").textContent = userAddr;
+    signer = await provider.getSigner();
+    userAddr = await signer.getAddress();
 
-  usdt = new ethers.Contract(cfg.USDT_ADDRESS, erc20Abi, signer);
-  presale = new ethers.Contract(cfg.PRESALE_ADDRESS, presaleAbi, signer);
+    const w = $("wallet");
+    if (w) w.textContent = userAddr;
 
-  log("Connected.");
-  await refresh();
-}
-window.__onWalletConnected__ = async () => {
-  const p = window.__EIP1193_PROVIDER__ || window.ethereum;
-  try { await connectWith(p); }
-  catch (err) {
-    const msg = err?.shortMessage || err?.message || String(err);
-    log("Connect error: " + msg);
-    alert("Connect failed: " + msg);
+    usdt = new ethers.Contract(cfg.USDT_ADDRESS, erc20Abi, signer);
+    presale = new ethers.Contract(cfg.PRESALE_ADDRESS, presaleAbi, signer);
+
+    log("Connected: " + userAddr);
+    await refresh();
   }
-};
 
+  // Called by presale.html after Connect / Connect(QR) sets window.__EIP1193_PROVIDER__
+  window.__onWalletConnected__ = async () => {
+    const p = window.__EIP1193_PROVIDER__ || window.ethereum;
+    try {
+      await connectWith(p);
+    } catch (err) {
+      const msg = err?.shortMessage || err?.message || String(err);
+      log("Connect error: " + msg);
+      alert("Connect failed: " + msg);
+    }
+  };
 
-  async function refresh(){
-    if (!signer) return;
+  async function refresh() {
+    if (!signer || !userAddr) return;
+
     try {
       const [bal, cl, end] = await Promise.all([
         usdt.balanceOf(userAddr),
         presale.claimable(userAddr),
         presale.endTime()
       ]);
-      $("usdtBal").textContent = fmt(bal, cfg.USDT_DECIMALS);
-      $("claimable").textContent = fmt(cl, cfg.TOKEN_DECIMALS);
+
+      const ub = $("usdtBal");
+      const cb = $("claimable");
+      const ends = $("ends");
+
+      if (ub) ub.textContent = fmt(bal, cfg.USDT_DECIMALS);
+      if (cb) cb.textContent = fmt(cl, cfg.TOKEN_DECIMALS);
+
       const endDate = new Date(Number(end) * 1000);
-      $("ends").textContent = endDate.toLocaleString();
-    } catch(e){
+      if (ends) ends.textContent = endDate.toLocaleString();
+    } catch (e) {
       log("Refresh error: " + (e?.shortMessage || e?.message || String(e)));
     }
   }
 
-  async function approveUSDT(){
-    const amtStr = $("amt").value.trim();
+  // =========================
+  // Actions
+  // =========================
+  async function approveUSDT() {
+    if (!signer) return alert("Connect wallet first.");
+
+    const amtStr = $("amt")?.value?.trim() || "";
     if (!amtStr) return alert("Enter USDT amount first.");
+
     const amt = parse(amtStr, cfg.USDT_DECIMALS);
 
     try {
       const allowance = await usdt.allowance(userAddr, cfg.PRESALE_ADDRESS);
       if (allowance >= amt) {
-        log("Allowance is already sufficient. No need to approve again.");
+        log("Allowance already sufficient. No need to approve again.");
         return;
       }
+
       const tx = await usdt.approve(cfg.PRESALE_ADDRESS, amt);
       log("Approve tx: " + tx.hash);
       await tx.wait();
       log("Approve confirmed.");
       await refresh();
-    } catch(e){
+    } catch (e) {
       log("Approve error: " + (e?.shortMessage || e?.message || String(e)));
     }
   }
 
-  async function buy(){
-    const amtStr = $("amt").value.trim();
+  async function buy() {
+    if (!signer) return alert("Connect wallet first.");
+
+    const amtStr = $("amt")?.value?.trim() || "";
     if (!amtStr) return alert("Enter USDT amount first.");
+
     const amt = parse(amtStr, cfg.USDT_DECIMALS);
 
     try {
       const allowance = await usdt.allowance(userAddr, cfg.PRESALE_ADDRESS);
       if (allowance < amt) {
-        log("Allowance is too low. Click Approve first.");
+        log("Allowance too low. Click Approve first.");
         return;
       }
+
       const tx = await presale.buy(amt);
       log("Buy tx: " + tx.hash);
       await tx.wait();
       log("Buy confirmed.");
       await refresh();
-    } catch(e){
+    } catch (e) {
       log("Buy error: " + (e?.shortMessage || e?.message || String(e)));
     }
   }
 
-  async function claim(){
+  async function claim() {
+    if (!signer) return alert("Connect wallet first.");
+
     try {
       const tx = await presale.claim();
       log("Claim tx: " + tx.hash);
       await tx.wait();
       log("Claim confirmed.");
       await refresh();
-    } catch(e){
+    } catch (e) {
       log("Claim error: " + (e?.shortMessage || e?.message || String(e)));
     }
   }
 
-  async function finalize(){
+  async function finalize() {
+    if (!signer) return alert("Connect wallet first.");
+
     try {
       const ok = await presale.canFinalizeNow();
       if (!ok) {
         log("Cannot finalize yet (time not ended / not sold out).");
         return;
       }
+
       const tx = await presale.finalize();
       log("Finalize tx: " + tx.hash);
       await tx.wait();
       log("Finalize confirmed.");
       await refresh();
-    } catch(e){
+    } catch (e) {
       log("Finalize error: " + (e?.shortMessage || e?.message || String(e)));
     }
   }
 
-  function updateEstimate(){
-    const amtStr = $("amt").value.trim();
-    if (!amtStr) { $("estOut").textContent = "Estimated output: -"; return; }
+  function updateEstimate() {
+    const est = $("estOut");
+    const amtStr = $("amt")?.value?.trim() || "";
+    if (!est) return;
+
+    if (!amtStr) { est.textContent = "Estimated output: -"; return; }
+
     const x = Number(amtStr);
-    if (!isFinite(x) || x <= 0) { $("estOut").textContent = "Estimated output: -"; return; }
+    if (!isFinite(x) || x <= 0) { est.textContent = "Estimated output: -"; return; }
 
     const rate = cfg.USE_PHASE_RATE_FOR_ESTIMATE ? getUiTokensPerUsdt() : 15;
     const out = x * rate;
     const tag = cfg.USE_PHASE_RATE_FOR_ESTIMATE ? "UI phase rate" : "Base rate";
-    $("estOut").textContent = `Estimated output (${tag}): ${out.toLocaleString()} GOBG`;
+    est.textContent = `Estimated output (${tag}): ${out.toLocaleString()} GOBG`;
   }
-  });
-  $("approveBtn").addEventListener("click", approveUSDT);
-  $("buyBtn").addEventListener("click", buy);
-  $("claimBtn").addEventListener("click", claim);
-  $("finalizeBtn").addEventListener("click", finalize);
-  $("amt").addEventListener("input", updateEstimate);
 
-  setInterval(() => { if(signer) refresh(); }, 10000);
+  // =========================
+  // Bind UI listeners
+  // =========================
+  $("approveBtn")?.addEventListener("click", approveUSDT);
+  $("buyBtn")?.addEventListener("click", buy);
+  $("claimBtn")?.addEventListener("click", claim);
+  $("finalizeBtn")?.addEventListener("click", finalize);
+  $("amt")?.addEventListener("input", updateEstimate);
+
+  updateEstimate();
+  setInterval(() => { if (signer) refresh(); }, 10000);
 })();
