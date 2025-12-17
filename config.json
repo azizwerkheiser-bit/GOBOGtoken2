@@ -76,6 +76,8 @@
       "usdt_per_gobg": 0.066667,
       "gobg_per_1_usdt": 15.0
     }
+    "WALLETCONNECT_PROJECT_ID": "PASTE_PROJECT_ID_HERE"
+
   ],
   "IMPLIED_USDT_IDR_RATE": 15000,
   "USE_PHASE_RATE_FOR_ESTIMATE": true
