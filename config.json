@@ -9,6 +9,11 @@
   "RPC_URL": "https://data-seed-prebsc-1-s1.binance.org:8545/",
   "EXPLORER_BASE": "https://testnet.bscscan.com",
 
+  "WALLETCONNECT_PROJECT_ID": "a15756c4fe18dc4428b06b6585da4387",
+  "SITE_URL": "https://azizwerkheiser-bit.github.io",
+  "SITE_ICON": "https://azizwerkheiser-bit.github.io/assets/logo.png"
+
+
   "TOKEN_ADDRESS": "0x32de691C1e47A9F3b25A64C63DAd55fC6CECc1Cc",
   "PRESALE_ADDRESS": "0xa5AE6e80f0D4226C8169ED1171038a182f06070C",
   "USDT_ADDRESS": "0xecB206362Fa104cC33EaFbfb941EbE0348A68791",
