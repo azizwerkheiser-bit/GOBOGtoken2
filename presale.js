@@ -104,23 +104,28 @@
       cdEl.textContent = formatDDHHMMSS(info.phaseEnd - now);
     }
 
-    listEl.innerHTML = info.timeline.map((p, i) => {
-      let cls = "future";
-      if (info.idx >= info.timeline.length) cls = "past";
-      else if (i < info.idx) cls = "past";
-      else if (i === info.idx) cls = "current";
-      if (info.idx < 0) cls = "future";
+   listEl.innerHTML = info.timeline.map((p, i) => {
+  let cls = "future";
+  if (info.idx >= info.timeline.length) cls = "past";
+  else if (i < info.idx) cls = "past";
+  else if (i === info.idx) cls = "current";
+  if (info.idx < 0) cls = "future";
 
-      return `
-        <div class="phase ${cls}">
-          <div class="left">
-            <div class="name">${p.name}</div>
-            <div class="meta">${p.durDays} days • 1 USDT = ${p.gobg_per_1_usdt} GOBG</div>
-          </div>
-          <div class="price">${p.usdt_per_gobg} USDT / GOBG</div>
-        </div>
-      `;
-    }).join("");
+  const isFuture = cls === "future";
+  const shownTokensPerUsdt = isFuture ? "X.XXXX" : p.gobg_per_1_usdt;
+  const shownUsdtPerGobg  = isFuture ? "X.XXXX" : p.usdt_per_gobg;
+
+  return `
+    <div class="phase ${cls}">
+      <div class="left">
+        <div class="name">${p.name}</div>
+        <div class="meta">${p.durDays} days • 1 USDT = ${shownTokensPerUsdt} GOBG</div>
+      </div>
+      <div class="price">${shownUsdtPerGobg} USDT / GOBG</div>
+    </div>
+  `;
+}).join("");
+
   }
 
   renderPhases();
