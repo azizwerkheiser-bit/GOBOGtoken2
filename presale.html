@@ -7,62 +7,13 @@
   <meta name="description" content="GOBOG (GOBG) Presale dApp — connect wallet, approve USDT, buy, claim." />
   <link rel="stylesheet" href="./styles.css" />
   <link rel="icon" href="./assets/gobog.svg" />
-  <script src="https://unpkg.com/ethers@6.14.0/dist/ethers.umd.min.js"></script>
+
+  <!-- ethers (UMD) -->
+  <script src="https://cdn.jsdelivr.net/npm/ethers@6.14.0/dist/ethers.umd.min.js"></script>
+
+  <!-- WalletConnect Ethereum Provider (UMD) -->
+  <script src="https://unpkg.com/@walletconnect/ethereum-provider@2.13.0/dist/index.umd.js"></script>
 </head>
-  <script src="https://unpkg.com/ethers@6.14.0/dist/ethers.umd.min.js"></script>
-
-<script type="module">
-  import { createWeb3Modal, defaultConfig } from 'https://unpkg.com/@web3modal/ethers@4/dist/index.js';
-
-  // 1) isi projectId WalletConnect (gratis)
-  const projectId = "Pa15756c4fe18dc4428b06b6585da4387";
-
-  // 2) metadata dApp
-  const metadata = {
-    name: "GOBOG Presale",
-    description: "GOBOG presale dApp",
-    url: window.location.origin,
-    icons: [window.location.origin + "/assets/logo.png"]
-  };
-
-  // 3) chain BSC
-  const bsc = {
-    chainId: 56,
-    name: 'BNB Smart Chain',
-    currency: 'BNB',
-    explorerUrl: 'https://bscscan.com',
-    rpcUrl: 'https://bsc-dataseed.binance.org'
-  };
-
-  // kalau testnet tambahin juga (opsional)
-  const bscTestnet = {
-    chainId: 97,
-    name: 'BNB Smart Chain Testnet',
-    currency: 'tBNB',
-    explorerUrl: 'https://testnet.bscscan.com',
-    rpcUrl: 'https://data-seed-prebsc-1-s1.binance.org:8545'
-  };
-
-  const ethersConfig = defaultConfig({ metadata });
-
-  createWeb3Modal({
-    ethersConfig,
-    chains: [bsc, bscTestnet],
-    projectId,
-    enableAnalytics: false
-  });
-
-  // tombol connect kamu tinggal panggil: window.openWeb3Modal()
-  window.openWeb3Modal = async () => {
-    const modal = document.querySelector('w3m-modal');
-    // web3modal v4 otomatis muncul saat dipanggil:
-    document.querySelector('w3m-button')?.click();
-  };
-</script>
-
-<!-- tombol siap pakai -->
-<w3m-button></w3m-button>
-<w3m-modal></w3m-modal>
 
 <body>
   <header class="container header">
@@ -77,8 +28,7 @@
       <a href="./index.html">Home</a>
       <a href="#" id="explorerPresale" target="_blank" rel="noreferrer">Explorer</a>
       <button class="btn small" id="connectBtn">Connect</button>
-<button class="btn small ghost" id="connectQrBtn">Connect (QR)</button>
-
+      <button class="btn small ghost" id="connectQrBtn">Connect (QR)</button>
     </nav>
   </header>
 
@@ -157,175 +107,10 @@
     <div class="small muted">GOBOG Presale UI • ethers v6</div>
   </footer>
 
+  <!-- MUST: config loader first -->
   <script src="./app-config.js"></script>
-  <script type="module">
-  import { createWeb3Modal, defaultConfig } from 'https://unpkg.com/@web3modal/ethers@4/dist/index.js';
-  import EthereumProvider from "https://unpkg.com/@walletconnect/ethereum-provider@2.13.3/dist/index.es.js";
 
-  const cfg = await loadGobogConfig();
-  const projectId = cfg.WALLETCONNECT_PROJECT_ID;
-
-  if (!projectId || projectId.includes("PASTE")) {
-    console.warn("Missing WALLETCONNECT_PROJECT_ID in config.json");
-  }
-
-  const metadata = {
-    name: "GOBOG Presale",
-    description: "GOBOG presale dApp",
-    url: window.location.origin,
-    icons: [window.location.origin + "/assets/logo.png"]
-  };
-
-  // Build chains based on config (mainnet/testnet)
-  const chains = [];
-  if (Number(cfg.CHAIN_ID) === 56) {
-    chains.push({
-      chainId: 56,
-      name: "BNB Smart Chain",
-      currency: "BNB",
-      explorerUrl: "https://bscscan.com",
-      rpcUrl: "https://bsc-dataseed.binance.org"
-    });
-  } else if (Number(cfg.CHAIN_ID) === 97) {
-    chains.push({
-      chainId: 97,
-      name: "BNB Smart Chain Testnet",
-      currency: "tBNB",
-      explorerUrl: "https://testnet.bscscan.com",
-      rpcUrl: "https://data-seed-prebsc-1-s1.binance.org:8545"
-    });
-  } else {
-    // fallback: still allow, but better to keep cfg.CHAIN_ID = 56 or 97
-    chains.push({
-      chainId: Number(cfg.CHAIN_ID),
-      name: cfg.CHAIN_NAME || "Custom Chain",
-      currency: "BNB",
-      explorerUrl: cfg.EXPLORER_BASE || "",
-      rpcUrl: ""
-    });
-  }
-
-  const ethersConfig = defaultConfig({ metadata });
-
-  // 1) Web3Modal: mobile list wallets + deeplink, desktop QR auto
-  const modal = createWeb3Modal({
-    projectId,
-    ethersConfig,
-    chains,
-    enableAnalytics: false
-  });
-
-  // When Web3Modal connects, it gives an EIP-1193 provider
-  modal.subscribeProvider(async (provider) => {
-    if (!provider) return;
-    window.__EIP1193_PROVIDER__ = provider;
-    window.__onWalletConnected__ && window.__onWalletConnected__();
-  });
-
-  // Open Web3Modal on button click
-  document.getElementById("connectBtn")?.addEventListener("click", async (e) => {
-    e.preventDefault();
-    await modal.open();
-  });
-
-  // 2) QR-only: force QR modal (great for desktop or users who prefer scanning)
-  let wcProvider;
-  document.getElementById("connectQrBtn")?.addEventListener("click", async (e) => {
-    e.preventDefault();
-
-    wcProvider = await EthereumProvider.init({
-      projectId,
-      chains: [Number(cfg.CHAIN_ID)],
-      showQrModal: true
-    });
-
-    await wcProvider.connect();
-    window.__EIP1193_PROVIDER__ = wcProvider;
-    window.__onWalletConnected__ && window.__onWalletConnected__();
-  });
-</script>
-<script src="https://unpkg.com/ethers@6.14.0/dist/ethers.umd.min.js"></script>
-<script src="https://unpkg.com/@walletconnect/ethereum-provider@2.13.3/dist/index.umd.js"></script>
-<script>
-(async () => {
-  // load config.json (punyamu sudah ada di app-config.js)
-  const cfg = await loadGobogConfig();
-
-  // IMPORTANT: isi ini di config.json
-  // "WALLETCONNECT_PROJECT_ID": "xxxx"
-  const projectId = cfg.WALLETCONNECT_PROJECT_ID;
-
-  let wcProvider = null;
-
-  function bindBtn(id, fn){
-    const el = document.getElementById(id);
-    if (!el) return;
-    el.addEventListener("click", (e) => {
-      e.preventDefault();
-      fn().catch(err => {
-        console.error(err);
-        alert("Connect failed: " + (err?.message || String(err)));
-      });
-    });
-  }
-
-  async function connectInjected(){
-    if (!window.ethereum) {
-      throw new Error("No injected wallet found. Use Connect (QR) or open via wallet browser.");
-    }
-    window.__EIP1193_PROVIDER__ = window.ethereum;
-    if (window.__onWalletConnected__) await window.__onWalletConnected__();
-  }
-
-  async function connectWalletConnect(){
-    if (!projectId || projectId.includes("PASTE")) {
-      throw new Error("Missing WALLETCONNECT_PROJECT_ID in config.json");
-    }
-
-    if (!wcProvider) {
-      wcProvider = await window.EthereumProvider.init({
-        projectId,
-        chains: [Number(cfg.CHAIN_ID)],   // 56 mainnet / 97 testnet
-        showQrModal: true
-      });
-
-      wcProvider.on("disconnect", () => {
-        window.__EIP1193_PROVIDER__ = null;
-      });
-    }
-
-    await wcProvider.connect(); // mobile: wallet list/deeplink, desktop: QR
-    window.__EIP1193_PROVIDER__ = wcProvider;
-    if (window.__onWalletConnected__) await window.__onWalletConnected__();
-  }
-
-  // Connect: coba injected dulu, kalau nggak ada -> WalletConnect
-  bindBtn("connectBtn", async () => {
-  const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-  if (!isMobile && window.ethereum) return connectInjected();
-  return connectWalletConnect();
-});
-
-  // Connect (QR): selalu WalletConnect modal
-  bindBtn("connectQrBtn", async () => {
-    return connectWalletConnect();
-  });
-
-})();
-</script>
-<script src="https://unpkg.com/ethers@6.14.0/dist/ethers.umd.min.js"></script>
-
-<!-- WalletConnect v2 Ethereum Provider (UMD) -->
-<script src="https://unpkg.com/@walletconnect/ethereum-provider@2.12.2/dist/index.umd.js"></script>
-
-<script src="./config.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/ethers@6.14.0/dist/ethers.umd.min.js"></script>
-<script src="https://unpkg.com/@walletconnect/ethereum-provider@2.13.0/dist/index.umd.js"></script>
-<script src="./presale.js"></script>
-
-
-
-
-
+  <!-- Your logic (connect, approve, buy, claim, phases, etc) -->
+  <script src="./presale.js"></script>
 </body>
 </html>
