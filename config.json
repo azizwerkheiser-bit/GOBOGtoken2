@@ -11,7 +11,7 @@
   "USDT_ADDRESS": "0xYourUSDTHere",
   "USDT_DECIMALS": 18,
   "TOKEN_DECIMALS": 18,
-  "PRESALE_START_TIME": 1766000000,
+  "PRESALE_START_TIME": 1765988700,
   "PHASES": [
     {
       "name": "Phase 1",
