@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>GOBOG (GOBG) — Collector Coin</title>
+  <meta name="description" content="GOBOG (GOBG) is a collector coin inspired by Majapahit-era coin culture. Presale in USDT on BNB Chain." />
+  <link rel="stylesheet" href="./styles.css" />
+  <link rel="icon" href="./assets/gobog.svg" />
+</head>
+<body>
+  <header class="container header">
+    <div class="brand">
+      <img src="./assets/gobog.svg" alt="GOBOG" class="logo" />
+      <div>
+        <div class="brand-name">GOBOG</div>
+        <div class="brand-sub">Symbol: <span class="mono">GOBG</span> • Network: BNB Smart Chain</div>
+      </div>
+    </div>
+    <nav class="nav">
+      <a href="#about">Background</a>
+      <a href="#tokenomics">Tokenomics</a>
+      <a href="#presale">Presale</a>
+      <a class="btn small" href="./presale.html">Open Presale</a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="container hero">
+      <div class="hero-left">
+        <h1>GOBOG — a minimal collector coin with Majapahit vibes.</h1>
+        <p class="lead">
+          Built to be simple and transparent: no tax, no blacklist, no hidden controls.
+          Presale rules live on-chain. The website is just a clean window.
+        </p>
+
+        <div class="hero-cta">
+          <a class="btn" href="./presale.html">Go to Presale dApp</a>
+          <a class="btn ghost" href="#facts">Quick facts</a>
+        </div>
+
+        <div id="facts" class="facts">
+          <div class="fact">
+            <div class="k">Total Supply</div>
+            <div class="v mono">1,000,000 GOBG</div>
+          </div>
+          <div class="fact">
+            <div class="k">Base Anchor</div>
+            <div class="v mono">1 USDT = 15 GOBG</div>
+          </div>
+          <div class="fact">
+            <div class="k">Presale Window</div>
+            <div class="v">60 days (phases)</div>
+          </div>
+          <div class="fact">
+            <div class="k">Unsold</div>
+            <div class="v">Burned at finalize</div>
+          </div>
+        </div>
+
+        <div class="note">
+          <strong>Note:</strong> GOBOG is a digital collectible. Price is market-driven. Not financial advice.
+        </div>
+      </div>
+
+      <div class="hero-right card">
+        <h3>Status & Official Links</h3>
+        <div class="kv">
+          <div>Twitter</div>
+          <div><a href="#" id="twLink" target="_blank" rel="noreferrer">@gobog</a></div>
+          <div>Token Contract</div>
+          <div><a href="#" id="tokenExplorer" target="_blank" rel="noreferrer">view on explorer</a></div>
+          <div>Presale</div>
+          <div><a href="./presale.html">presale.html</a></div>
+        </div>
+
+        <hr class="sep"/>
+
+        <p class="small">
+          This site is static. Transactions happen in your wallet and are executed by smart contracts.
+        </p>
+
+        <div class="pill-row">
+          <span class="pill">No mint</span>
+          <span class="pill">No blacklist</span>
+          <span class="pill">No pause</span>
+        </div>
+      </div>
+    </section>
+
+    <section id="about" class="container section">
+      <h2>Majapahit (short, readable)</h2>
+      <p>
+        Majapahit was a major polity in East Java (late 13th century to around the 16th century), known for administration,
+        agriculture, and inter-island trade networks. Archaeological remains often associated with its center are found around Trowulan.
+      </p>
+      <p class="small muted">You can expand this section anytime—without touching the presale logic.</p>
+    </section>
+
+    <section id="tokenomics" class="container section">
+      <h2>Tokenomics</h2>
+      <div class="grid2">
+        <div class="card">
+          <h3>Supply Breakdown</h3>
+          <ul class="list">
+            <li><span class="mono">50%</span> Presale — <span class="mono">500,000</span></li>
+            <li><span class="mono">25%</span> LP — <span class="mono">250,000</span></li>
+            <li><span class="mono">10%</span> Team — <span class="mono">100,000</span></li>
+            <li><span class="mono">7%</span> Treasury/Ops — <span class="mono">70,000</span></li>
+            <li><span class="mono">5%</span> Community/Airdrop — <span class="mono">50,000</span></li>
+            <li><span class="mono">3%</span> Reserve — <span class="mono">30,000</span></li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>Presale Rules</h3>
+          <ul class="list">
+            <li>Runs for <strong>60 days</strong> (phase schedule) or until sold out.</li>
+            <li>Payment: <strong>USDT</strong> on BNB Chain.</li>
+            <li>After it ends: anyone can call <strong>finalize</strong>.</li>
+            <li>Unsold presale tokens: <strong>burned</strong>.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section id="presale" class="container section">
+      <h2>Presale</h2>
+      <p>Open the presale dApp to connect your wallet and buy.</p>
+      <a class="btn" href="./presale.html">Open Presale dApp</a>
+    </section>
+
+    <section class="container section">
+      <h2>Disclaimer</h2>
+      <p class="small muted">
+        GOBOG is a digital collectible. No promise of profit. Always verify contract addresses and do your own research.
+      </p>
+    </section>
+  </main>
+
+  <footer class="container footer">
+    <div>© <span id="year"></span> GOBOG</div>
+    <div class="small muted">Static site • edit config.json to update addresses</div>
+  </footer>
+
+  <script src="./app-config.js"></script>
+  <script>
+    document.getElementById('year').textContent = new Date().getFullYear();
+    (async () => {
+      const cfg = await loadGobogConfig();
+      const tw = document.getElementById('twLink');
+      tw.textContent = (cfg.TWITTER || '@gobog');
+      tw.href = cfg.TWITTER_URL || '#';
+      const explorer = document.getElementById('tokenExplorer');
+      explorer.href = cfg.TOKEN_EXPLORER_URL || '#';
+    })().catch(console.error);
+  </script>
+</body>
+</html>

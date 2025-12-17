@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>GOBOG Presale</title>
+  <meta name="description" content="GOBOG (GOBG) Presale dApp — connect wallet, approve USDT, buy, claim." />
+  <link rel="stylesheet" href="./styles.css" />
+  <link rel="icon" href="./assets/gobog.svg" />
+  <script src="https://unpkg.com/ethers@6.14.0/dist/ethers.umd.min.js"></script>
+</head>
+<body>
+  <header class="container header">
+    <div class="brand">
+      <img src="./assets/gobog.svg" alt="GOBOG" class="logo" />
+      <div>
+        <div class="brand-name">GOBOG Presale</div>
+        <div class="brand-sub">Symbol: <span class="mono">GOBG</span></div>
+      </div>
+    </div>
+    <nav class="nav">
+      <a href="./index.html">Home</a>
+      <a href="#" id="explorerPresale" target="_blank" rel="noreferrer">Explorer</a>
+      <a class="btn small" href="#" id="connectBtn">Connect</a>
+    </nav>
+  </header>
+
+  <main class="container section">
+    <div class="grid2">
+      <div class="card">
+        <h2>Status</h2>
+        <div class="kv">
+          <div>Network</div><div id="netName" class="mono">-</div>
+          <div>Wallet</div><div id="wallet" class="mono">-</div>
+          <div>USDT Balance</div><div id="usdtBal" class="mono">-</div>
+          <div>Claimable GOBG</div><div id="claimable" class="mono">-</div>
+          <div>Presale Ends</div><div id="ends" class="mono">-</div>
+        </div>
+
+        <hr class="sep"/>
+
+        <div class="small muted">
+          You need a little BNB for gas. Approve once before buying.
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Buy</h2>
+        <label class="label">USDT amount</label>
+        <input id="amt" class="input" placeholder="e.g. 10" inputmode="decimal" />
+
+        <div class="row">
+          <button class="btn" id="approveBtn">Approve USDT</button>
+          <button class="btn" id="buyBtn">Buy</button>
+        </div>
+
+        <div class="note small" id="estOut">Estimated output: -</div>
+
+        <hr class="sep"/>
+
+        <h2>Claim</h2>
+        <button class="btn" id="claimBtn">Claim GOBG</button>
+
+        <hr class="sep"/>
+        <h2>Finalize</h2>
+        <p class="small muted">
+          Finalize is permissionless but only works when the presale is over (time ended or sold out).
+        </p>
+        <button class="btn ghost" id="finalizeBtn">Finalize</button>
+      </div>
+
+      <div class="card">
+        <h2>Phase Schedule (UI)</h2>
+        <div class="kv">
+          <div>Active phase</div><div id="phaseActive" class="mono">-</div>
+          <div>Phase countdown</div><div id="phaseCountdown" class="mono">--:--:--:--</div>
+        </div>
+
+        <hr class="sep"/>
+
+        <div id="phaseList" class="phase-list"></div>
+
+        <p class="small muted" style="margin-top:12px;">
+          This phase schedule is a website label. Your actual on-chain rate is defined by the presale contract.
+        </p>
+      </div>
+    </div>
+
+    <div class="card section">
+      <h2>Console</h2>
+      <pre class="console" id="log"></pre>
+    </div>
+
+    <div class="small muted">
+      If you see "estimateGas" errors: usually not approved, not enough USDT/BNB, or the presale hasn't started/has ended.
+    </div>
+  </main>
+
+  <footer class="container footer">
+    <div class="small muted">GOBOG Presale UI • ethers v6</div>
+  </footer>
+
+  <script src="./app-config.js"></script>
+  <script src="./presale.js"></script>
+</body>
+</html>
