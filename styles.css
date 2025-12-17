@@ -40,7 +40,16 @@ a:hover{ text-decoration:underline; }
   z-index:10;
 }
 .brand{ display:flex; align-items:center; gap:12px; }
-.logo{ width:40px; height:40px; border-radius:12px; background:rgba(255,255,255,.03); border:1px solid rgba(245,197,66,.22); padding:8px; }
+.logo{
+  width:64px;
+  height:64px;
+  border-radius:14px;
+  background: transparent;
+  border: 1px solid rgba(245,197,66,.22);
+  padding: 2px;         /* sebelumnya 6px bikin makin kecil */
+  object-fit: contain;
+}
+
 .brand-name{ font-weight:800; letter-spacing:.3px; }
 .brand-sub{ color: var(--muted); font-size:13px; }
 .nav{ display:flex; gap:14px; align-items:center; flex-wrap:wrap; }
