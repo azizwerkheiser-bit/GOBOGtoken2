@@ -11,6 +11,46 @@
 <link rel="stylesheet" href="./styles.css?v=72" />
 <link rel="icon" href="./assets/gobog.svg" />
 </head>
+  <script>
+  (async () => {
+    const cfg = await loadGobogConfig();
+
+    // fill addresses
+    document.querySelector('#tokenAddr').textContent = cfg.TOKEN_ADDRESS || '0x...';
+    document.querySelector('#presaleAddr').textContent = cfg.PRESALE_ADDRESS || '0x...';
+    document.querySelector('#usdtAddr').textContent = cfg.USDT_ADDRESS || '0x...';
+
+    // links
+    const tw2 = document.querySelector('#twLink2');
+    if (tw2) { tw2.textContent = cfg.TWITTER || '@gobog'; tw2.href = cfg.TWITTER_URL || '#'; }
+
+    const tokenEx2 = document.querySelector('#tokenExplorer2');
+    if (tokenEx2) tokenEx2.href = cfg.TOKEN_EXPLORER_URL || '#';
+
+    const presaleEx2 = document.querySelector('#presaleExplorer2');
+    if (presaleEx2) presaleEx2.href = cfg.PRESALE_EXPLORER_URL || '#';
+
+    // copy buttons
+    document.querySelectorAll('.copyBtn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const sel = btn.getAttribute('data-copy');
+        const el = document.querySelector(sel);
+        const text = (el?.textContent || '').trim();
+        if (!text) return;
+
+        try {
+          await navigator.clipboard.writeText(text);
+          const old = btn.textContent;
+          btn.textContent = 'Copied';
+          setTimeout(() => btn.textContent = old, 900);
+        } catch (e) {
+          alert('Copy failed. You can manually select and copy the address.');
+        }
+      });
+    });
+  })().catch(console.error);
+</script>
+
 <body>
   <header class="container header">
     <div class="brand">
