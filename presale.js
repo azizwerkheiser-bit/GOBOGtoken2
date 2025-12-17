@@ -1,12 +1,21 @@
-(async function () {
+(() => {
   const $ = (id) => document.getElementById(id);
 
-  // --- logger (safe even if #log not found) ---
-  const logEl = $("log");
-  const log = (s) => {
+  const log = (msg) => {
+    const el = $("log");
     const ts = new Date().toISOString().replace("T", " ").replace("Z", "");
-    if (logEl) logEl.textContent = `[${ts}] ${s}\n` + logEl.textContent;
-    console.log(`[${ts}] ${s}`);
+    if (el) el.textContent = `[${ts}] ${msg}\n` + el.textContent;
+    console.log("[GOBOG]", msg);
+  };
+
+  const setText = (id, txt) => {
+    const el = $(id);
+    if (el) el.textContent = txt;
+  };
+
+  const setHref = (id, href) => {
+    const el = $(id);
+    if (el) el.href = href || "#";
   };
 
   function formatDDHHMMSS(totalSeconds) {
@@ -19,51 +28,15 @@
     return `${pad(dd)}:${pad(hh)}:${pad(mm)}:${pad(ss)}`;
   }
 
-  function fmt(x, d) {
-    try { return ethers.formatUnits(x, d); } catch (_) { return "-"; }
-  }
-  function parse(x, d) {
-    return ethers.parseUnits(x, d);
-  }
-
-  // --- load config ---
-  let cfg;
-  try {
-    cfg = await loadGobogConfig();
-  } catch (e) {
-    const msg = e?.message || String(e);
-    log("Config error: " + msg);
-    alert("Failed to load config.json. Make sure it exists and is valid JSON.\n\n" + msg);
-    return;
+  async function loadConfig() {
+    const res = await fetch("./config.json", { cache: "no-store" });
+    if (!res.ok) throw new Error(`config.json HTTP ${res.status}`);
+    const cfg = await res.json();
+    return cfg;
   }
 
-  const ex = $("explorerPresale");
-  if (ex) ex.href = cfg.PRESALE_EXPLORER_URL || "#";
-
-  // --- ABIs ---
-  const erc20Abi = [
-    "function balanceOf(address) view returns (uint256)",
-    "function allowance(address owner, address spender) view returns (uint256)",
-    "function approve(address spender, uint256 value) returns (bool)"
-  ];
-
-  const presaleAbi = [
-    "function buy(uint256 usdtAmount) external",
-    "function claim() external",
-    "function finalize() external",
-    "function claimable(address user) view returns (uint256)",
-    "function endTime() view returns (uint256)",
-    "function canFinalizeNow() view returns (bool)"
-  ];
-
-  // --- runtime state ---
-  let provider, signer, userAddr;
-  let usdt, presale;
-
-  // =========================
-  // Phase schedule (UI)
-  // =========================
-  function buildTimeline() {
+  // ---------- Phase timeline ----------
+  function buildTimeline(cfg) {
     const phases = cfg.PHASES || [];
     const start = Number(cfg.PRESALE_START_TIME || 0);
     if (!start || phases.length === 0) return { start, timeline: [] };
@@ -79,11 +52,11 @@
     return { start, timeline };
   }
 
-  function getActivePhase(now) {
-    const { start, timeline } = buildTimeline();
+  function getActivePhase(cfg, now) {
+    const { start, timeline } = buildTimeline(cfg);
     if (!start || timeline.length === 0) return { idx: -1, phase: null, phaseEnd: start || 0, timeline };
-
     const totalEnd = timeline[timeline.length - 1].end;
+
     if (now < start) return { idx: -1, phase: null, phaseEnd: start, timeline };
 
     const idx = timeline.findIndex((seg) => now >= seg.start && now < seg.end);
@@ -92,14 +65,14 @@
     return { idx, phase: timeline[idx], phaseEnd: timeline[idx].end, timeline };
   }
 
-  function renderPhases() {
+  function renderPhases(cfg) {
     const listEl = $("phaseList");
     const activeEl = $("phaseActive");
     const cdEl = $("phaseCountdown");
     if (!listEl || !activeEl || !cdEl) return;
 
     const now = Math.floor(Date.now() / 1000);
-    const info = getActivePhase(now);
+    const info = getActivePhase(cfg, now);
 
     if (!cfg.PRESALE_START_TIME || !info.timeline.length) {
       activeEl.textContent = "Not configured";
@@ -145,12 +118,9 @@
       .join("");
   }
 
-  renderPhases();
-  setInterval(renderPhases, 1000);
-
-  function getUiTokensPerUsdt() {
+  function getUiTokensPerUsdt(cfg) {
     const now = Math.floor(Date.now() / 1000);
-    const info = getActivePhase(now);
+    const info = getActivePhase(cfg, now);
     if (info.idx >= 0 && info.idx < info.timeline.length) {
       const v = Number(info.phase?.gobg_per_1_usdt);
       if (isFinite(v) && v > 0) return v;
@@ -158,38 +128,182 @@
     return 15;
   }
 
-  // =========================
-  // Wallet / Contracts
-  // =========================
-  async function ensureNetwork(providerSource) {
-    if (!providerSource) throw new Error("Wallet provider not found. Use Connect or Connect (QR).");
+  // ---------- WalletConnect modal (custom) ----------
+  let wcOverlayEl = null;
 
-    const mm = new ethers.BrowserProvider(providerSource);
-    const net = await mm.getNetwork();
+  function ensureWcOverlay() {
+    if (wcOverlayEl) return wcOverlayEl;
 
-    const netNameEl = $("netName");
-    if (netNameEl) {
-      netNameEl.textContent = `${cfg.CHAIN_NAME} (cfg ${cfg.CHAIN_ID}) • yours: ${Number(net.chainId)}`;
-    }
+    const overlay = document.createElement("div");
+    overlay.style.cssText = `
+      position: fixed; inset: 0; z-index: 9999;
+      background: rgba(0,0,0,0.72);
+      display: none; align-items: center; justify-content: center;
+      padding: 18px;
+    `;
 
-    if (Number(net.chainId) !== Number(cfg.CHAIN_ID)) {
-      log(`Network mismatch. Switch to chainId ${cfg.CHAIN_ID}.`);
-      // We don't force switch here because WalletConnect/injected behavior can vary.
-    }
-    return mm;
+    const card = document.createElement("div");
+    card.style.cssText = `
+      width: min(520px, 100%);
+      background: rgba(12,10,6,0.96);
+      border: 1px solid rgba(245,197,66,0.35);
+      border-radius: 18px;
+      padding: 16px;
+      color: #fff;
+      box-shadow: 0 20px 80px rgba(0,0,0,0.6);
+    `;
+
+    card.innerHTML = `
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+        <div style="font-weight:700; letter-spacing:0.3px;">Connect Wallet (WalletConnect)</div>
+        <button id="wcCloseBtn" style="
+          border: 1px solid rgba(245,197,66,0.35);
+          background: transparent; color: #fff;
+          padding: 8px 10px; border-radius: 12px; cursor:pointer;
+        ">Close</button>
+      </div>
+
+      <div style="margin-top:12px; font-size:13px; opacity:0.85;">
+        Scan the QR with your wallet, or tap a wallet button (mobile).
+      </div>
+
+      <div style="margin-top:14px; display:flex; gap:14px; flex-wrap:wrap; align-items:flex-start;">
+        <div style="background:#fff; padding:10px; border-radius:14px;">
+          <canvas id="wcQrCanvas" width="240" height="240"></canvas>
+        </div>
+
+        <div style="flex:1; min-width:200px;">
+          <div style="display:flex; flex-direction:column; gap:10px;">
+            <a id="wcTrustLink" href="#" style="
+              display:block; text-align:center;
+              background: rgba(245,197,66,0.14);
+              border: 1px solid rgba(245,197,66,0.35);
+              color:#fff; padding:10px 12px; border-radius:14px; text-decoration:none;
+            ">Open Trust Wallet</a>
+
+            <a id="wcMetaLink" href="#" style="
+              display:block; text-align:center;
+              background: rgba(245,197,66,0.14);
+              border: 1px solid rgba(245,197,66,0.35);
+              color:#fff; padding:10px 12px; border-radius:14px; text-decoration:none;
+            ">Open MetaMask</a>
+
+            <button id="wcCopyBtn" style="
+              border: 1px solid rgba(245,197,66,0.35);
+              background: transparent; color: #fff;
+              padding: 10px 12px; border-radius: 14px; cursor:pointer;
+            ">Copy WalletConnect URI</button>
+
+            <div id="wcHint" style="font-size:12px; opacity:0.75; line-height:1.35;">
+              If you're on Android and nothing happens, open this dApp inside your wallet’s built-in browser.
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    overlay.appendChild(card);
+    document.body.appendChild(overlay);
+
+    overlay.querySelector("#wcCloseBtn").addEventListener("click", () => closeWcOverlay());
+    overlay.addEventListener("click", (e) => {
+      if (e.target === overlay) closeWcOverlay();
+    });
+
+    wcOverlayEl = overlay;
+    return overlay;
   }
 
-  async function connectWith(providerSource) {
-    provider = await ensureNetwork(providerSource);
+  function openWcOverlay(uri) {
+    const overlay = ensureWcOverlay();
+    overlay.style.display = "flex";
 
-    // request accounts (works for injected + walletconnect)
+    // QR
+    const canvas = overlay.querySelector("#wcQrCanvas");
+    if (window.QRCode && canvas) {
+      window.QRCode.toCanvas(canvas, uri, { width: 240 }, (err) => {
+        if (err) log("QR error: " + err.message);
+      });
+    } else {
+      log("QRCode lib not loaded.");
+    }
+
+    // Deep links
+    const trust = overlay.querySelector("#wcTrustLink");
+    const meta = overlay.querySelector("#wcMetaLink");
+    const enc = encodeURIComponent(uri);
+
+    // These two are the most common “works in Chrome → opens wallet app” links:
+    if (trust) trust.href = `https://link.trustwallet.com/wc?uri=${enc}`;
+    if (meta) meta.href = `https://metamask.app.link/wc?uri=${enc}`;
+
+    // Copy
+    const copyBtn = overlay.querySelector("#wcCopyBtn");
+    if (copyBtn) {
+      copyBtn.onclick = async () => {
+        try {
+          await navigator.clipboard.writeText(uri);
+          copyBtn.textContent = "Copied!";
+          setTimeout(() => (copyBtn.textContent = "Copy WalletConnect URI"), 1200);
+        } catch (e) {
+          alert("Copy failed. Long-press to copy:\n\n" + uri);
+        }
+      };
+    }
+  }
+
+  function closeWcOverlay() {
+    if (wcOverlayEl) wcOverlayEl.style.display = "none";
+  }
+
+  // ---------- Ethers / Contracts ----------
+  const erc20Abi = [
+    "function balanceOf(address) view returns (uint256)",
+    "function allowance(address owner, address spender) view returns (uint256)",
+    "function approve(address spender, uint256 value) returns (bool)"
+  ];
+
+  const presaleAbi = [
+    "function buy(uint256 usdtAmount) external",
+    "function claim() external",
+    "function finalize() external",
+    "function claimable(address user) view returns (uint256)",
+    "function endTime() view returns (uint256)",
+    "function canFinalizeNow() view returns (bool)"
+  ];
+
+  const fmt = (x, d) => {
+    try { return ethers.formatUnits(x, d); } catch { return "-"; }
+  };
+
+  const parse = (x, d) => ethers.parseUnits(x, d);
+
+  let cfg;
+  let provider, signer, userAddr;
+  let usdt, presale;
+  let wcProvider = null;
+
+  async function ensureNetworkInfo() {
+    if (!provider) return;
+    const net = await provider.getNetwork();
+    setText("netName", `${cfg.CHAIN_NAME} (cfg ${cfg.CHAIN_ID}) • yours: ${Number(net.chainId)}`);
+
+    if (Number(net.chainId) !== Number(cfg.CHAIN_ID)) {
+      log(`Network mismatch. Expected ${cfg.CHAIN_ID}, got ${Number(net.chainId)}.`);
+    }
+  }
+
+  async function connectWith(eip1193) {
+    provider = new ethers.BrowserProvider(eip1193);
+
+    // request accounts (some providers need it)
     try { await provider.send("eth_requestAccounts", []); } catch (_) {}
 
     signer = await provider.getSigner();
     userAddr = await signer.getAddress();
+    setText("wallet", userAddr);
 
-    const w = $("wallet");
-    if (w) w.textContent = userAddr;
+    await ensureNetworkInfo();
 
     usdt = new ethers.Contract(cfg.USDT_ADDRESS, erc20Abi, signer);
     presale = new ethers.Contract(cfg.PRESALE_ADDRESS, presaleAbi, signer);
@@ -198,20 +312,36 @@
     await refresh();
   }
 
-  // Called by presale.html after Connect / Connect(QR) sets window.__EIP1193_PROVIDER__
-  window.__onWalletConnected__ = async () => {
-    const p = window.__EIP1193_PROVIDER__ || window.ethereum;
-    try {
-      await connectWith(p);
-    } catch (err) {
-      const msg = err?.shortMessage || err?.message || String(err);
-      log("Connect error: " + msg);
-      alert("Connect failed: " + msg);
+  async function connectInjected() {
+    if (!window.ethereum) {
+      throw new Error("No injected wallet found. Use WalletConnect (QR) or open this site inside your wallet browser.");
     }
-  };
+    await connectWith(window.ethereum);
+  }
+
+  async function connectWalletConnect(showOverlay) {
+    const WC = window.WalletConnectProvider && (window.WalletConnectProvider.default || window.WalletConnectProvider);
+    if (!WC) throw new Error("WalletConnect library not loaded (walletconnect-web3-provider).");
+    if (!cfg.RPC_URL) throw new Error("RPC_URL missing in config.json (needed for WalletConnect).");
+
+    wcProvider = new WC({
+      rpc: { [Number(cfg.CHAIN_ID)]: cfg.RPC_URL },
+      chainId: Number(cfg.CHAIN_ID),
+      qrcode: false
+    });
+
+    wcProvider.on("display_uri", (uri) => {
+      log("WalletConnect URI received.");
+      if (showOverlay) openWcOverlay(uri);
+    });
+
+    await wcProvider.enable(); // triggers display_uri
+    closeWcOverlay();
+    await connectWith(wcProvider);
+  }
 
   async function refresh() {
-    if (!signer || !userAddr) return;
+    if (!signer || !usdt || !presale) return;
 
     try {
       const [bal, cl, end] = await Promise.all([
@@ -220,38 +350,46 @@
         presale.endTime()
       ]);
 
-      const ub = $("usdtBal");
-      const cb = $("claimable");
-      const ends = $("ends");
-
-      if (ub) ub.textContent = fmt(bal, cfg.USDT_DECIMALS);
-      if (cb) cb.textContent = fmt(cl, cfg.TOKEN_DECIMALS);
+      setText("usdtBal", fmt(bal, cfg.USDT_DECIMALS));
+      setText("claimable", fmt(cl, cfg.TOKEN_DECIMALS));
 
       const endDate = new Date(Number(end) * 1000);
-      if (ends) ends.textContent = endDate.toLocaleString();
+      setText("ends", endDate.toLocaleString());
+
+      await ensureNetworkInfo();
     } catch (e) {
       log("Refresh error: " + (e?.shortMessage || e?.message || String(e)));
     }
   }
 
-  // =========================
-  // Actions
-  // =========================
+  function updateEstimate() {
+    const amtEl = $("amt");
+    const outEl = $("estOut");
+    if (!amtEl || !outEl) return;
+
+    const amtStr = amtEl.value.trim();
+    if (!amtStr) { outEl.textContent = "Estimated output: -"; return; }
+
+    const x = Number(amtStr);
+    if (!isFinite(x) || x <= 0) { outEl.textContent = "Estimated output: -"; return; }
+
+    const rate = cfg.USE_PHASE_RATE_FOR_ESTIMATE ? getUiTokensPerUsdt(cfg) : 15;
+    const out = x * rate;
+    const tag = cfg.USE_PHASE_RATE_FOR_ESTIMATE ? "UI phase rate" : "Base rate";
+    outEl.textContent = `Estimated output (${tag}): ${out.toLocaleString()} GOBG`;
+  }
+
   async function approveUSDT() {
-    if (!signer) return alert("Connect wallet first.");
-
-    const amtStr = $("amt")?.value?.trim() || "";
+    const amtStr = $("amt")?.value?.trim?.() || "";
     if (!amtStr) return alert("Enter USDT amount first.");
-
     const amt = parse(amtStr, cfg.USDT_DECIMALS);
 
     try {
       const allowance = await usdt.allowance(userAddr, cfg.PRESALE_ADDRESS);
       if (allowance >= amt) {
-        log("Allowance already sufficient. No need to approve again.");
+        log("Allowance already sufficient.");
         return;
       }
-
       const tx = await usdt.approve(cfg.PRESALE_ADDRESS, amt);
       log("Approve tx: " + tx.hash);
       await tx.wait();
@@ -263,11 +401,8 @@
   }
 
   async function buy() {
-    if (!signer) return alert("Connect wallet first.");
-
-    const amtStr = $("amt")?.value?.trim() || "";
+    const amtStr = $("amt")?.value?.trim?.() || "";
     if (!amtStr) return alert("Enter USDT amount first.");
-
     const amt = parse(amtStr, cfg.USDT_DECIMALS);
 
     try {
@@ -276,7 +411,6 @@
         log("Allowance too low. Click Approve first.");
         return;
       }
-
       const tx = await presale.buy(amt);
       log("Buy tx: " + tx.hash);
       await tx.wait();
@@ -288,8 +422,6 @@
   }
 
   async function claim() {
-    if (!signer) return alert("Connect wallet first.");
-
     try {
       const tx = await presale.claim();
       log("Claim tx: " + tx.hash);
@@ -302,15 +434,12 @@
   }
 
   async function finalize() {
-    if (!signer) return alert("Connect wallet first.");
-
     try {
       const ok = await presale.canFinalizeNow();
       if (!ok) {
         log("Cannot finalize yet (time not ended / not sold out).");
         return;
       }
-
       const tx = await presale.finalize();
       log("Finalize tx: " + tx.hash);
       await tx.wait();
@@ -321,31 +450,62 @@
     }
   }
 
-  function updateEstimate() {
-    const est = $("estOut");
-    const amtStr = $("amt")?.value?.trim() || "";
-    if (!est) return;
+  async function init() {
+    try {
+      cfg = await loadConfig();
+    } catch (e) {
+      log("Config error: " + (e?.message || String(e)));
+      alert("Failed to load config.json. Make sure it exists and is valid JSON.\n\n" + (e?.message || String(e)));
+      return;
+    }
 
-    if (!amtStr) { est.textContent = "Estimated output: -"; return; }
+    // explorer link
+    setHref("explorerPresale", cfg.EXPLORER_BASE ? `${cfg.EXPLORER_BASE}/address/${cfg.PRESALE_ADDRESS}` : "#");
 
-    const x = Number(amtStr);
-    if (!isFinite(x) || x <= 0) { est.textContent = "Estimated output: -"; return; }
+    // phases UI
+    renderPhases(cfg);
+    setInterval(() => renderPhases(cfg), 1000);
 
-    const rate = cfg.USE_PHASE_RATE_FOR_ESTIMATE ? getUiTokensPerUsdt() : 15;
-    const out = x * rate;
-    const tag = cfg.USE_PHASE_RATE_FOR_ESTIMATE ? "UI phase rate" : "Base rate";
-    est.textContent = `Estimated output (${tag}): ${out.toLocaleString()} GOBG`;
+    // buttons
+    $("approveBtn")?.addEventListener("click", approveUSDT);
+    $("buyBtn")?.addEventListener("click", buy);
+    $("claimBtn")?.addEventListener("click", claim);
+    $("finalizeBtn")?.addEventListener("click", finalize);
+    $("amt")?.addEventListener("input", updateEstimate);
+
+    // connect buttons
+    $("connectBtn")?.addEventListener("click", async () => {
+      try {
+        if (window.ethereum) {
+          await connectInjected();
+        } else {
+          await connectWalletConnect(true);
+        }
+      } catch (e) {
+        const msg = e?.shortMessage || e?.message || String(e);
+        log("Connect error: " + msg);
+        alert("Connect failed: " + msg);
+      }
+    });
+
+    $("connectQrBtn")?.addEventListener("click", async () => {
+      try {
+        await connectWalletConnect(true);
+      } catch (e) {
+        const msg = e?.shortMessage || e?.message || String(e);
+        log("Connect (QR) error: " + msg);
+        alert("Connect (QR) failed: " + msg);
+      }
+    });
+
+    setInterval(() => { if (signer) refresh(); }, 10000);
+
+    log("App loaded.");
   }
 
-  // =========================
-  // Bind UI listeners
-  // =========================
-  $("approveBtn")?.addEventListener("click", approveUSDT);
-  $("buyBtn")?.addEventListener("click", buy);
-  $("claimBtn")?.addEventListener("click", claim);
-  $("finalizeBtn")?.addEventListener("click", finalize);
-  $("amt")?.addEventListener("input", updateEstimate);
-
-  updateEstimate();
-  setInterval(() => { if (signer) refresh(); }, 10000);
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
+  } else {
+    init();
+  }
 })();
