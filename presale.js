@@ -142,30 +142,43 @@
   }
 
   // ---- Wallet / Contracts ----
-  async function ensureNetwork(){
-    if (!window.ethereum) throw new Error("Wallet provider not found. Make sure MetaMask extension is enabled.");
-    const mm = new ethers.BrowserProvider(window.ethereum);
-    const net = await mm.getNetwork();
-    $("netName").textContent = `${cfg.CHAIN_NAME} (cfg ${cfg.CHAIN_ID}) • yours: ${Number(net.chainId)}`;
-    if (Number(net.chainId) !== Number(cfg.CHAIN_ID)) {
-      log(`Network mismatch. Switch to chainId ${cfg.CHAIN_ID}.`);
-    }
-    return mm;
+  async function ensureNetwork(providerSource){
+  if (!providerSource) throw new Error("Wallet provider not found. Use Connect or Connect (QR).");
+  const mm = new ethers.BrowserProvider(providerSource);
+  const net = await mm.getNetwork();
+  $("netName").textContent = `${cfg.CHAIN_NAME} (cfg ${cfg.CHAIN_ID}) • yours: ${Number(net.chainId)}`;
+  if (Number(net.chainId) !== Number(cfg.CHAIN_ID)) {
+    log(`Network mismatch. Switch to chainId ${cfg.CHAIN_ID}.`);
   }
+  return mm;
+}
 
-  async function connect(){
-    provider = await ensureNetwork();
-    await provider.send("eth_requestAccounts", []);
-    signer = await provider.getSigner();
-    userAddr = await signer.getAddress();
-    $("wallet").textContent = userAddr;
+async function connectWith(providerSource){
+  provider = await ensureNetwork(providerSource);
 
-    usdt = new ethers.Contract(cfg.USDT_ADDRESS, erc20Abi, signer);
-    presale = new ethers.Contract(cfg.PRESALE_ADDRESS, presaleAbi, signer);
+  // request accounts (works for injected + walletconnect)
+  try { await provider.send("eth_requestAccounts", []); } catch(_) {}
 
-    log("Connected.");
-    await refresh();
+  signer = await provider.getSigner();
+  userAddr = await signer.getAddress();
+  $("wallet").textContent = userAddr;
+
+  usdt = new ethers.Contract(cfg.USDT_ADDRESS, erc20Abi, signer);
+  presale = new ethers.Contract(cfg.PRESALE_ADDRESS, presaleAbi, signer);
+
+  log("Connected.");
+  await refresh();
+}
+window.__onWalletConnected__ = async () => {
+  const p = window.__EIP1193_PROVIDER__ || window.ethereum;
+  try { await connectWith(p); }
+  catch (err) {
+    const msg = err?.shortMessage || err?.message || String(err);
+    log("Connect error: " + msg);
+    alert("Connect failed: " + msg);
   }
+};
+
 
   async function refresh(){
     if (!signer) return;
@@ -266,15 +279,6 @@
     const tag = cfg.USE_PHASE_RATE_FOR_ESTIMATE ? "UI phase rate" : "Base rate";
     $("estOut").textContent = `Estimated output (${tag}): ${out.toLocaleString()} GOBG`;
   }
-
-  $("connectBtn").addEventListener("click", async (e) => {
-    e.preventDefault();
-    try { await connect(); }
-    catch (err) {
-      const msg = err?.shortMessage || err?.message || String(err);
-      alert("Connect failed: " + msg);
-      log("Connect error: " + msg);
-    }
   });
   $("approveBtn").addEventListener("click", approveUSDT);
   $("buyBtn").addEventListener("click", buy);
