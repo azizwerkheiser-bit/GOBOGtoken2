@@ -164,11 +164,18 @@
   let presale = null;
   let wcProvider = null;
 
+  // Trust deep-link flag
+  let trustDeepLinkNext = false;
+
+  function getWCGlobal() {
+    // dari presale.html (module) -> window.EthereumProvider
+    return window.EthereumProvider || window.WalletConnectEthereumProvider;
+  }
+
   async function connectWithEIP1193(p, label) {
     eip1193 = p;
     provider = new ethers.BrowserProvider(eip1193);
 
-    // request accounts
     try { await provider.send("eth_requestAccounts", []); } catch (_) {}
 
     signer = await provider.getSigner();
@@ -178,7 +185,6 @@
     const net = await provider.getNetwork();
     $("netName").textContent = `${cfg.CHAIN_NAME} (cfg ${cfg.CHAIN_ID}) • yours: ${Number(net.chainId)} • via: ${label}`;
 
-    // contracts
     usdt = new ethers.Contract(cfg.USDT_ADDRESS, erc20Abi, signer);
     presale = new ethers.Contract(cfg.PRESALE_ADDRESS, presaleAbi, signer);
 
@@ -186,28 +192,19 @@
     await refresh();
   }
 
-  // ✅ NEW: load WalletConnect provider via ESM (no UMD globals)
-  async function loadWalletConnectProvider() {
-    const mod = await import("https://cdn.jsdelivr.net/npm/@walletconnect/ethereum-provider@2.23.1/+esm");
-    if (!mod?.EthereumProvider) throw new Error("WalletConnect module loaded but EthereumProvider missing.");
-    return mod.EthereumProvider;
+  async function connectInjectedOnly() {
+    if (!window.ethereum) throw new Error("Injected wallet tidak ditemukan. Coba buka lewat DApp Browser (Trust/MetaMask) atau pakai extension di desktop.");
+    await connectWithEIP1193(window.ethereum, "Injected");
   }
 
-  async function connectUnified() {
-    // 1) Injected first (desktop extension or wallet browser)
-    if (window.ethereum) {
-      await connectWithEIP1193(window.ethereum, "Injected");
-      return;
-    }
-
-    // 2) WalletConnect for mobile browser
+  async function ensureWalletConnectProvider() {
+    const WC = getWCGlobal();
+    if (!WC) throw new Error("WalletConnect belum ke-load. Pastikan internet OK & file presale.html memuat script module WalletConnect.");
     if (!cfg.WALLETCONNECT_PROJECT_ID) throw new Error("Missing WALLETCONNECT_PROJECT_ID in config.json");
     if (!cfg.RPC_URL) throw new Error("Missing RPC_URL in config.json");
 
-    const EthereumProvider = await loadWalletConnectProvider();
-
     if (!wcProvider) {
-      wcProvider = await EthereumProvider.init({
+      wcProvider = await WC.init({
         projectId: cfg.WALLETCONNECT_PROJECT_ID,
         chains: [Number(cfg.CHAIN_ID)],
         rpcMap: { [Number(cfg.CHAIN_ID)]: cfg.RPC_URL },
@@ -220,11 +217,33 @@
         }
       });
 
+      // Deep link to TrustWallet if requested
+      wcProvider.on?.("display_uri", (uri) => {
+        if (trustDeepLinkNext) {
+          trustDeepLinkNext = false;
+          const tw = "https://link.trustwallet.com/wc?uri=" + encodeURIComponent(uri);
+          log("Opening TrustWallet…");
+          window.location.href = tw;
+        }
+      });
+
       wcProvider.on("disconnect", () => log("WalletConnect disconnected"));
     }
 
-    await wcProvider.connect();
-    await connectWithEIP1193(wcProvider, "WalletConnect");
+    return wcProvider;
+  }
+
+  async function connectWalletConnectQR() {
+    const p = await ensureWalletConnectProvider();
+    await p.connect();
+    await connectWithEIP1193(p, "WalletConnect");
+  }
+
+  async function connectTrustWalletApp() {
+    trustDeepLinkNext = true;
+    const p = await ensureWalletConnectProvider();
+    await p.connect();
+    await connectWithEIP1193(p, "WalletConnect (TrustWallet)");
   }
 
   async function refresh() {
@@ -278,4 +297,127 @@
       }
       const tx = await presale.buy(amt);
       log("Buy tx: " + tx.hash);
-      await tx.wait()
+      await tx.wait();
+      log("Buy confirmed.");
+      await refresh();
+    } catch (e) {
+      log("Buy error: " + (e?.shortMessage || e?.message || String(e)));
+    }
+  }
+
+  async function claim() {
+    try {
+      const tx = await presale.claim();
+      log("Claim tx: " + tx.hash);
+      await tx.wait();
+      log("Claim confirmed.");
+      await refresh();
+    } catch (e) {
+      log("Claim error: " + (e?.shortMessage || e?.message || String(e)));
+    }
+  }
+
+  async function finalize() {
+    try {
+      const ok = await presale.canFinalizeNow();
+      if (!ok) {
+        log("Cannot finalize yet (time not ended / not sold out).");
+        return;
+      }
+      const tx = await presale.finalize();
+      log("Finalize tx: " + tx.hash);
+      await tx.wait();
+      log("Finalize confirmed.");
+      await refresh();
+    } catch (e) {
+      log("Finalize error: " + (e?.shortMessage || e?.message || String(e)));
+    }
+  }
+
+  function updateEstimate() {
+    const amtStr = ($("amt").value || "").trim();
+    if (!amtStr) { $("estOut").textContent = "Estimated output: -"; return; }
+
+    const x = Number(amtStr);
+    if (!isFinite(x) || x <= 0) { $("estOut").textContent = "Estimated output: -"; return; }
+
+    const rate = cfg.USE_PHASE_RATE_FOR_ESTIMATE ? getUiTokensPerUsdt() : 15;
+    const out = x * rate;
+    const tag = cfg.USE_PHASE_RATE_FOR_ESTIMATE ? "UI phase rate" : "Base rate";
+    $("estOut").textContent = `Estimated output (${tag}): ${out.toLocaleString()} GOBG`;
+  }
+
+  // ---- Connect Modal (new, minimal) ----
+  const backdrop = $("cmBackdrop");
+  const btnInjected = $("cmInjected");
+  const btnWC = $("cmWC");
+  const btnTrust = $("cmTrust");
+  const btnCancel = $("cmCancel");
+
+  function openConnectModal() {
+    if (!backdrop) return;
+
+    // enable/disable injected button depending on availability
+    if (btnInjected) btnInjected.disabled = !window.ethereum;
+
+    backdrop.classList.add("show");
+    backdrop.setAttribute("aria-hidden", "false");
+  }
+
+  function closeConnectModal() {
+    if (!backdrop) return;
+    backdrop.classList.remove("show");
+    backdrop.setAttribute("aria-hidden", "true");
+  }
+
+  backdrop?.addEventListener("click", (e) => {
+    if (e.target === backdrop) closeConnectModal();
+  });
+  btnCancel?.addEventListener("click", closeConnectModal);
+
+  btnInjected?.addEventListener("click", async () => {
+    closeConnectModal();
+    try { await connectInjectedOnly(); }
+    catch (err) {
+      const msg = err?.message || String(err);
+      log("Connect error: " + msg);
+      alert("Connect failed: " + msg);
+    }
+  });
+
+  btnWC?.addEventListener("click", async () => {
+    closeConnectModal();
+    try { await connectWalletConnectQR(); }
+    catch (err) {
+      const msg = err?.message || String(err);
+      log("Connect error: " + msg);
+      alert("Connect failed: " + msg);
+    }
+  });
+
+  btnTrust?.addEventListener("click", async () => {
+    closeConnectModal();
+    try { await connectTrustWalletApp(); }
+    catch (err) {
+      const msg = err?.message || String(err);
+      log("Connect error: " + msg);
+      alert("Connect failed: " + msg);
+    }
+  });
+
+  // ---- bind UI ----
+  $("connectBtn")?.addEventListener("click", async (e) => {
+    e.preventDefault();
+    openConnectModal();
+  });
+
+  $("approveBtn")?.addEventListener("click", approveUSDT);
+  $("buyBtn")?.addEventListener("click", buy);
+  $("claimBtn")?.addEventListener("click", claim);
+  $("finalizeBtn")?.addEventListener("click", finalize);
+  $("amt")?.addEventListener("input", updateEstimate);
+
+  setInterval(() => { if (signer) refresh(); }, 10000);
+
+  log("UI ready.");
+})();
