@@ -5,20 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>GOBOG Presale</title>
   <meta name="description" content="GOBOG (GOBG) Presale dApp — connect wallet, approve USDT, buy, claim." />
-  <link rel="stylesheet" href="./styles.css" />
+  <link rel="stylesheet" href="./styles.css?v=73" />
   <link rel="icon" href="./assets/gobog.svg" />
-
-  <!-- ethers (UMD) -->
-  <script src="https://cdn.jsdelivr.net/npm/ethers@6.14.0/dist/ethers.umd.min.js"></script>
-
-  <!-- ❌ REMOVE WalletConnect UMD (biang “UMD missing”) -->
-  <!-- <script src="https://cdn.jsdelivr.net/npm/@walletconnect/ethereum-provider@2.13.0/dist/index.umd.js"></script> -->
-
-  <!-- ✅ Load WalletConnect (ESM) and expose as window.EthereumProvider -->
-  <script type="module">
-    import { EthereumProvider } from "https://cdn.jsdelivr.net/npm/@walletconnect/ethereum-provider@2.23.1/+esm";
-    window.EthereumProvider = EthereumProvider;
-  </script>
 
   <!-- Minimal modal CSS (biar gak ganggu styles.css) -->
   <style>
@@ -85,22 +73,21 @@
       </div>
 
       <div class="card">
-  <h2>Buy</h2>
+        <h2>Buy</h2>
 
-  <!-- Presale progress (near Buy) -->
-  <div class="buy-progress">
-    <div class="buy-progress-top">
-      <div class="small muted">Presale progress</div>
-      <div id="buySoldText" class="mono">-</div>
-    </div>
-    <div class="progress"><div id="buySoldBar"></div></div>
-    <div class="buy-progress-bottom small muted">
-      <span id="buyRaisedText">Raised: -</span>
-    </div>
-  </div>
+        <!-- Presale progress (near Buy) -->
+        <div class="buy-progress">
+          <div class="buy-progress-top">
+            <div class="small muted">Presale progress</div>
+            <div id="buySoldText" class="mono">-</div>
+          </div>
+          <div class="progress"><div id="buySoldBar"></div></div>
+          <div class="buy-progress-bottom small muted">
+            <span id="buyRaisedText">Raised: -</span>
+          </div>
+        </div>
 
-  <label class="label">USDT amount</label>
-
+        <label class="label" for="amt">USDT amount</label>
         <input id="amt" class="input" placeholder="e.g. 10" inputmode="decimal" />
 
         <div class="row">
@@ -116,6 +103,7 @@
         <button class="btn" id="claimBtn" type="button">Claim GOBG</button>
 
         <hr class="sep"/>
+
         <h2>Finalize</h2>
         <p class="small muted">
           Finalize is permissionless but only works when the presale is over (time ended or sold out).
@@ -156,28 +144,31 @@
 
   <!-- ✅ Connect Modal -->
   <div id="cmBackdrop" class="cm-backdrop" aria-hidden="true">
-  <div class="cm-card" role="dialog" aria-modal="true" aria-label="Connect Wallet">
-    <p class="cm-title">Connect Wallet</p>
-    <p class="cm-sub">
-      Pilih cara konek. Injected = web3 browser/extension. WalletConnect = pilih wallet / QR.
-    </p>
+    <div class="cm-card" role="dialog" aria-modal="true" aria-label="Connect Wallet">
+      <p class="cm-title">Connect Wallet</p>
+      <p class="cm-sub">
+        Pilih cara konek. Injected = web3 browser/extension. WalletConnect = pilih wallet / QR.
+      </p>
 
-    <div class="cm-actions">
-      <button class="btn" id="cmInjected" type="button">Injected wallet (Web wallet)</button>
-      <button class="btn" id="cmWC" type="button">WalletConnect (pilih wallet / QR)</button>
+      <div class="cm-actions">
+        <button class="btn" id="cmInjected" type="button">Injected wallet (Web wallet)</button>
+        <button class="btn" id="cmWC" type="button">WalletConnect (pilih wallet / QR)</button>
 
-      <div class="cm-row">
-        <button class="btn ghost" id="cmCancel" type="button">Cancel</button>
+        <div class="cm-row">
+          <button class="btn ghost" id="cmCancel" type="button">Cancel</button>
+        </div>
       </div>
     </div>
   </div>
-</div>
 
+  <!-- Scripts: defer + berurutan (ini yang bikin WalletConnect gak ngambek) -->
+  <script defer src="https://cdn.jsdelivr.net/npm/ethers@6.14.0/dist/ethers.umd.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/@walletconnect/ethereum-provider@2.13.0/dist/index.umd.min.js"></script>
 
-  <!-- MUST: config loader first -->
-  <script src="./app-config.js"></script>
+  <!-- MUST: config loader before presale.js -->
+  <script defer src="./app-config.js?v=1"></script>
 
-  <!-- Your logic -->
-  <script src="./presale.js"></script>
+  <!-- Your logic (bump v biar cache gak nyangkut) -->
+  <script defer src="./presale.js?v=4"></script>
 </body>
 </html>
