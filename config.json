@@ -4,23 +4,24 @@
   "TWITTER": "@GOBOGtoken",
   "TWITTER_URL": "https://x.com/GOBOGtoken",
 
-  "CHAIN_ID": 97,
-  "CHAIN_NAME": "BNB Smart Chain Testnet",
-  "RPC_URL": "https://data-seed-prebsc-1-s1.binance.org:8545/",
-  "EXPLORER_BASE": "https://testnet.bscscan.com",
+  "CHAIN_ID": 56,
+  "CHAIN_NAME": "BNB Smart Chain",
+  "RPC_URL": "https://bsc-dataseed.binance.org/",
+  "EXPLORER_BASE": "https://bscscan.com",
 
   "WALLETCONNECT_PROJECT_ID": "a15756c4fe18dc4428b06b6585da4387",
   "SITE_URL": "https://azizwerkheiser-bit.github.io",
   "SITE_ICON": "https://azizwerkheiser-bit.github.io/assets/logo.png",
 
-  "TOKEN_ADDRESS": "0x32de691C1e47A9F3b25A64C63DAd55fC6CECc1Cc",
-  "PRESALE_ADDRESS": "0xa5AE6e80f0D4226C8169ED1171038a182f06070C",
-  "USDT_ADDRESS": "0xecB206362Fa104cC33EaFbfb941EbE0348A68791",
+  "TOKEN_ADDRESS": "0x9300a58879041fC618C904B0Ac34dF389cEfe0E8",
+  "PRESALE_ADDRESS": "0x63f55D8E980B63D334AF73d38dF77F3F6D16248C",
+  "USDT_ADDRESS": "0x55d398326f99059fF775485246999027B3197955",
 
   "USDT_DECIMALS": 18,
   "TOKEN_DECIMALS": 18,
 
-  "PRESALE_START_TIME": 1765993800,
+  "PRESALE_START_TIME": 1766250000,
+  "PRESALE_END_TIME": 1771434000,
 
   "PHASES": [
     { "name": "Phase 1", "duration_days": 7, "price_idr_per_gobg": 1000, "usdt_per_gobg": 0.066667, "gobg_per_1_usdt": 15.0 },
