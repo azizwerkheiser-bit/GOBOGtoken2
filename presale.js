@@ -25,20 +25,10 @@
     return ethers.parseUnits(x, d);
   }
 
-  async function loadConfig() {
-    // prefer config.js loader if exists
-    if (typeof window.loadGobogConfig === "function") {
-      return await window.loadGobogConfig();
-    }
-    // fallback: config.json
-    const res = await fetch("./config.json", { cache: "no-store" });
-    if (!res.ok) throw new Error(`HTTP ${res.status} while loading config.json`);
-    return await res.json();
-  }
-
+  // ---- load config ----
   let cfg;
   try {
-    cfg = await loadConfig();
+    cfg = await loadGobogConfig();
   } catch (e) {
     const msg = e?.message || String(e);
     log("Config error: " + msg);
@@ -46,16 +36,12 @@
     return;
   }
 
-  // Build explorer links if not provided
-  const explorerBase = cfg.EXPLORER_BASE || "";
-  const presaleExplorer = cfg.PRESALE_EXPLORER_URL || (explorerBase && cfg.PRESALE_ADDRESS ? `${explorerBase}/address/${cfg.PRESALE_ADDRESS}` : "#");
-  const tokenExplorer = cfg.TOKEN_EXPLORER_URL || (explorerBase && cfg.TOKEN_ADDRESS ? `${explorerBase}/address/${cfg.TOKEN_ADDRESS}` : "#");
-
-  const exPresale = $("explorerPresale");
-  if (exPresale) exPresale.href = presaleExplorer;
-
-  const exToken = $("explorerToken");
-  if (exToken) exToken.href = tokenExplorer;
+  // ---- explorer link ----
+  const ex = $("explorerPresale");
+  if (ex) {
+    const base = (cfg.EXPLORER_BASE || "").replace(/\/$/, "");
+    ex.href = cfg.PRESALE_EXPLORER_URL || (base ? `${base}/address/${cfg.PRESALE_ADDRESS}` : "#");
+  }
 
   // ---- ABI ----
   const erc20Abi = [
@@ -73,7 +59,7 @@
     "function canFinalizeNow() view returns (bool)"
   ];
 
-  // ---- Phase schedule (UI) ----
+  // ---- Phase UI ----
   function buildTimeline() {
     const phases = cfg.PHASES || [];
     const start = Number(cfg.PRESALE_START_TIME || 0);
@@ -93,19 +79,14 @@
 
   function getActivePhase(now) {
     const { start, timeline } = buildTimeline();
-    if (!start || timeline.length === 0) {
-      return { idx: -1, phase: null, phaseEnd: start || 0, timeline };
-    }
+    if (!start || timeline.length === 0) return { idx: -1, phase: null, phaseEnd: start || 0, timeline };
 
     const totalEnd = timeline[timeline.length - 1].end;
 
     if (now < start) return { idx: -1, phase: null, phaseEnd: start, timeline };
 
     const idx = timeline.findIndex((seg) => now >= seg.start && now < seg.end);
-
-    if (idx === -1 && now >= totalEnd) {
-      return { idx: timeline.length, phase: null, phaseEnd: totalEnd, timeline };
-    }
+    if (idx === -1 && now >= totalEnd) return { idx: timeline.length, phase: null, phaseEnd: totalEnd, timeline };
 
     return { idx, phase: timeline[idx], phaseEnd: timeline[idx].end, timeline };
   }
@@ -138,30 +119,31 @@
       cdEl.textContent = formatDDHHMMSS(info.phaseEnd - now);
     }
 
-    listEl.innerHTML = info.timeline
-      .map((p, i) => {
-        let cls = "future";
-        if (info.idx >= info.timeline.length) cls = "past";
-        else if (i < info.idx) cls = "past";
-        else if (i === info.idx) cls = "current";
-        if (info.idx < 0) cls = "future";
+    listEl.innerHTML = info.timeline.map((p, i) => {
+      let cls = "future";
+      if (info.idx >= info.timeline.length) cls = "past";
+      else if (i < info.idx) cls = "past";
+      else if (i === info.idx) cls = "current";
+      if (info.idx < 0) cls = "future";
 
-        const isFuture = cls === "future";
-        const shownTokensPerUsdt = isFuture ? "X.XXXX" : p.gobg_per_1_usdt;
-        const shownUsdtPerGobg = isFuture ? "X.XXXX" : p.usdt_per_gobg;
+      const isFuture = cls === "future";
+      const shownTokensPerUsdt = isFuture ? "X.XXXX" : p.gobg_per_1_usdt;
+      const shownUsdtPerGobg = isFuture ? "X.XXXX" : p.usdt_per_gobg;
 
-        return `
-          <div class="phase ${cls}">
-            <div class="left">
-              <div class="name">${p.name}</div>
-              <div class="meta">${p.durDays} days • 1 USDT = ${shownTokensPerUsdt} GOBG</div>
-            </div>
-            <div class="price">${shownUsdtPerGobg} USDT / GOBG</div>
+      return `
+        <div class="phase ${cls}">
+          <div class="left">
+            <div class="name">${p.name}</div>
+            <div class="meta">${p.durDays} days • 1 USDT = ${shownTokensPerUsdt} GOBG</div>
           </div>
-        `;
-      })
-      .join("");
+          <div class="price">${shownUsdtPerGobg} USDT / GOBG</div>
+        </div>
+      `;
+    }).join("");
   }
+
+  renderPhases();
+  setInterval(renderPhases, 1000);
 
   function getUiTokensPerUsdt() {
     const now = Math.floor(Date.now() / 1000);
@@ -173,126 +155,74 @@
     return 15;
   }
 
-  renderPhases();
-  setInterval(renderPhases, 1000);
+  // ---- Wallet/Contracts state ----
+  let eip1193 = null;
+  let provider = null;
+  let signer = null;
+  let userAddr = null;
+  let usdt = null;
+  let presale = null;
+  let wcProvider = null;
 
-  // ---- Providers / WalletConnect ----
-  function getWcUmd() {
-    // Different UMD builds expose different globals
-    return (
-      window.EthereumProvider ||
-      window.WalletConnectEthereumProvider ||
-      window.WalletConnectEthereumProvider?.default ||
-      null
-    );
+  function getWCGlobal() {
+    return window.EthereumProvider || window.WalletConnectEthereumProvider;
   }
 
-  async function initWalletConnect({ forceQr = false } = {}) {
-    const WC = getWcUmd();
-    if (!WC || typeof WC.init !== "function") {
-      throw new Error("WalletConnect provider script not loaded. Check the <script> tag for @walletconnect/ethereum-provider.");
-    }
-    if (!cfg.WALLETCONNECT_PROJECT_ID) {
-      throw new Error("Missing WALLETCONNECT_PROJECT_ID in config.json");
-    }
-    if (!cfg.RPC_URL) {
-      throw new Error("Missing RPC_URL in config.json");
-    }
-
-    // WalletConnect modal will handle QR on desktop + wallet list / deep link on mobile
-   // ganti semua window.EthereumProvider jadi ini:
-const WCProvider = window.EthereumProvider || window.WalletConnectEthereumProvider;
-
-if (!WCProvider) {
-  throw new Error("WalletConnect provider script not loaded (EthereumProvider missing). Check the <script src=...> URL.");
-}
-
-// lalu pakai:
-wcProvider = await WCProvider.init({
-  projectId,
-  chains: [Number(cfg.CHAIN_ID)],
-  showQrModal: true
-});
-
-    // If you want to force showing QR modal even on some environments:
-    // call connect() explicitly
-    await wcProvider.connect();
-
-    // Small hint: "forceQr" kept for future tweaks; modal already decides best UX.
-    void forceQr;
-
-    return wcProvider;
-  }
-
-  let provider;      // ethers BrowserProvider
-  let signer;        // ethers Signer
-  let userAddr;
-  let usdt;
-  let presale;
-
-  async function trySwitchOrAddChain(eip1193) {
-    // best effort: wallet may reject, it's ok.
-    if (!eip1193?.request) return;
-
-    const chainIdHex = "0x" + Number(cfg.CHAIN_ID).toString(16);
-
-    try {
-      await eip1193.request({
-        method: "wallet_switchEthereumChain",
-        params: [{ chainId: chainIdHex }]
-      });
-      return;
-    } catch (_) {
-      // try add
-    }
-
-    try {
-      await eip1193.request({
-        method: "wallet_addEthereumChain",
-        params: [{
-          chainId: chainIdHex,
-          chainName: cfg.CHAIN_NAME || "Custom Chain",
-          rpcUrls: [cfg.RPC_URL],
-          nativeCurrency: { name: "BNB", symbol: "BNB", decimals: 18 },
-          blockExplorerUrls: [cfg.EXPLORER_BASE].filter(Boolean)
-        }]
-      });
-    } catch (_) {
-      // ignore
-    }
-  }
-
-  async function ensureNetwork(eip1193) {
-    if (!eip1193) throw new Error("Wallet provider not found.");
+  async function connectWithEIP1193(p, label) {
+    eip1193 = p;
     provider = new ethers.BrowserProvider(eip1193);
 
-    const net = await provider.getNetwork();
-    const netName = $("netName");
-    if (netName) netName.textContent = `${cfg.CHAIN_NAME} (cfg ${cfg.CHAIN_ID}) • yours: ${Number(net.chainId)}`;
-
-    if (Number(net.chainId) !== Number(cfg.CHAIN_ID)) {
-      log(`Network mismatch. Switching to chainId ${cfg.CHAIN_ID}...`);
-      await trySwitchOrAddChain(eip1193);
-    }
-  }
-
-  async function connectWith(eip1193) {
-    await ensureNetwork(eip1193);
-
-    // request accounts (injected + wc)
+    // request accounts
     try { await provider.send("eth_requestAccounts", []); } catch (_) {}
 
     signer = await provider.getSigner();
     userAddr = await signer.getAddress();
+    $("wallet").textContent = userAddr;
 
-    const w = $("wallet");
-    if (w) w.textContent = userAddr;
+    const net = await provider.getNetwork();
+    $("netName").textContent = `${cfg.CHAIN_NAME} (cfg ${cfg.CHAIN_ID}) • yours: ${Number(net.chainId)} • via: ${label}`;
 
+    // contracts
     usdt = new ethers.Contract(cfg.USDT_ADDRESS, erc20Abi, signer);
     presale = new ethers.Contract(cfg.PRESALE_ADDRESS, presaleAbi, signer);
 
     log("Connected: " + userAddr);
     await refresh();
+  }
+
+  async function connectUnified() {
+    // 1) Injected first (desktop extension or wallet browser)
+    if (window.ethereum) {
+      await connectWithEIP1193(window.ethereum, "Injected");
+      return;
+    }
+
+    // 2) WalletConnect for mobile browser
+    const WC = getWCGlobal();
+    if (!WC) throw new Error("WalletConnect provider script not loaded (UMD missing).");
+
+    if (!cfg.WALLETCONNECT_PROJECT_ID) throw new Error("Missing WALLETCONNECT_PROJECT_ID in config.json");
+    if (!cfg.RPC_URL) throw new Error("Missing RPC_URL in config.json");
+
+    if (!wcProvider) {
+      wcProvider = await WC.init({
+        projectId: cfg.WALLETCONNECT_PROJECT_ID,
+        chains: [Number(cfg.CHAIN_ID)],
+        rpcMap: { [Number(cfg.CHAIN_ID)]: cfg.RPC_URL },
+        showQrModal: true,
+        metadata: {
+          name: `${cfg.PROJECT_NAME || "GOBOG"} Presale`,
+          description: "GOBOG presale dApp",
+          url: cfg.SITE_URL || window.location.origin,
+          icons: [cfg.SITE_ICON || ""].filter(Boolean)
+        }
+      });
+
+      wcProvider.on("disconnect", () => log("WalletConnect disconnected"));
+    }
+
+    await wcProvider.connect();
+    await connectWithEIP1193(wcProvider, "WalletConnect");
   }
 
   async function refresh() {
@@ -304,23 +234,16 @@ wcProvider = await WCProvider.init({
         presale.endTime()
       ]);
 
-      const ub = $("usdtBal");
-      if (ub) ub.textContent = fmt(bal, cfg.USDT_DECIMALS);
-
-      const c = $("claimable");
-      if (c) c.textContent = fmt(cl, cfg.TOKEN_DECIMALS);
-
-      const e = $("ends");
-      if (e) e.textContent = new Date(Number(end) * 1000).toLocaleString();
-
+      $("usdtBal").textContent = fmt(bal, cfg.USDT_DECIMALS);
+      $("claimable").textContent = fmt(cl, cfg.TOKEN_DECIMALS);
+      $("ends").textContent = new Date(Number(end) * 1000).toLocaleString();
     } catch (e) {
       log("Refresh error: " + (e?.shortMessage || e?.message || String(e)));
     }
   }
 
   async function approveUSDT() {
-    const amtEl = $("amt");
-    const amtStr = (amtEl?.value || "").trim();
+    const amtStr = ($("amt").value || "").trim();
     if (!amtStr) return alert("Enter USDT amount first.");
     const amt = parse(amtStr, cfg.USDT_DECIMALS);
 
@@ -341,8 +264,7 @@ wcProvider = await WCProvider.init({
   }
 
   async function buy() {
-    const amtEl = $("amt");
-    const amtStr = (amtEl?.value || "").trim();
+    const amtStr = ($("amt").value || "").trim();
     if (!amtStr) return alert("Enter USDT amount first.");
     const amt = parse(amtStr, cfg.USDT_DECIMALS);
 
@@ -392,70 +314,35 @@ wcProvider = await WCProvider.init({
   }
 
   function updateEstimate() {
-    const amtEl = $("amt");
-    const outEl = $("estOut");
-    if (!outEl) return;
-
-    const amtStr = (amtEl?.value || "").trim();
-    if (!amtStr) { outEl.textContent = "Estimated output: -"; return; }
+    const amtStr = ($("amt").value || "").trim();
+    if (!amtStr) { $("estOut").textContent = "Estimated output: -"; return; }
 
     const x = Number(amtStr);
-    if (!isFinite(x) || x <= 0) { outEl.textContent = "Estimated output: -"; return; }
+    if (!isFinite(x) || x <= 0) { $("estOut").textContent = "Estimated output: -"; return; }
 
     const rate = cfg.USE_PHASE_RATE_FOR_ESTIMATE ? getUiTokensPerUsdt() : 15;
-    const tag = cfg.USE_PHASE_RATE_FOR_ESTIMATE ? "UI phase rate" : "Base rate";
     const out = x * rate;
-
-    outEl.textContent = `Estimated output (${tag}): ${out.toLocaleString()} GOBG`;
+    const tag = cfg.USE_PHASE_RATE_FOR_ESTIMATE ? "UI phase rate" : "Base rate";
+    $("estOut").textContent = `Estimated output (${tag}): ${out.toLocaleString()} GOBG`;
   }
 
-  // ---- Buttons ----
-  const connectBtn = $("connectBtn");
-  const connectQrBtn = $("connectQrBtn");
-
-  async function onConnectMain() {
+  // ---- bind UI ----
+  $("connectBtn")?.addEventListener("click", async (e) => {
+    e.preventDefault();
     try {
-      // Desktop with extension: use injected first
-      if (window.ethereum) {
-        await connectWith(window.ethereum);
-        return;
-      }
-      // Mobile / no extension: WalletConnect
-      const wc = await initWalletConnect({ forceQr: false });
-      await connectWith(wc);
-    } catch (e) {
-      const msg = e?.shortMessage || e?.message || String(e);
+      await connectUnified();
+    } catch (err) {
+      const msg = err?.message || String(err);
       log("Connect error: " + msg);
       alert("Connect failed: " + msg);
     }
-  }
+  });
 
-  async function onConnectQr() {
-    try {
-      const wc = await initWalletConnect({ forceQr: true });
-      await connectWith(wc);
-    } catch (e) {
-      const msg = e?.shortMessage || e?.message || String(e);
-      log("Connect(QR) error: " + msg);
-      alert("Connect failed: " + msg);
-    }
-  }
-
-  if (connectBtn) connectBtn.addEventListener("click", onConnectMain);
-  if (connectQrBtn) connectQrBtn.addEventListener("click", onConnectQr);
-
-  const approveBtn = $("approveBtn");
-  const buyBtn = $("buyBtn");
-  const claimBtn = $("claimBtn");
-  const finalizeBtn = $("finalizeBtn");
-  const amt = $("amt");
-
-  if (approveBtn) approveBtn.addEventListener("click", approveUSDT);
-  if (buyBtn) buyBtn.addEventListener("click", buy);
-  if (claimBtn) claimBtn.addEventListener("click", claim);
-  if (finalizeBtn) finalizeBtn.addEventListener("click", finalize);
-  if (amt) amt.addEventListener("input", updateEstimate);
+  $("approveBtn")?.addEventListener("click", approveUSDT);
+  $("buyBtn")?.addEventListener("click", buy);
+  $("claimBtn")?.addEventListener("click", claim);
+  $("finalizeBtn")?.addEventListener("click", finalize);
+  $("amt")?.addEventListener("input", updateEstimate);
 
   setInterval(() => { if (signer) refresh(); }, 10000);
-
 })();
