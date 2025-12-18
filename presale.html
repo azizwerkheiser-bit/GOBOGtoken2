@@ -142,20 +142,23 @@
 
   <!-- ✅ Connect Modal -->
   <div id="cmBackdrop" class="cm-backdrop" aria-hidden="true">
-    <div class="cm-card" role="dialog" aria-modal="true" aria-label="Connect Wallet">
-      <p class="cm-title">Connect Wallet</p>
-      <p class="cm-sub">Pilih cara konek. (Injected = dari web3 browser / extension. WalletConnect = QR / pilih TrustWallet, dll.)</p>
+  <div class="cm-card" role="dialog" aria-modal="true" aria-label="Connect Wallet">
+    <p class="cm-title">Connect Wallet</p>
+    <p class="cm-sub">
+      Pilih cara konek. Injected = web3 browser/extension. WalletConnect = pilih wallet / QR.
+    </p>
 
-      <div class="cm-actions">
-        <button class="btn" id="cmInjected" type="button">Injected wallet (Web wallet)</button>
-        <button class="btn" id="cmWC" type="button">WalletConnect (QR / pilih wallet)</button>
-        <button class="btn" id="cmTrust" type="button">Trust Wallet App</button>
-        <div class="cm-row">
-          <button class="btn ghost" id="cmCancel" type="button">Cancel</button>
-        </div>
+    <div class="cm-actions">
+      <button class="btn" id="cmInjected" type="button">Injected wallet (Web wallet)</button>
+      <button class="btn" id="cmWC" type="button">WalletConnect (pilih wallet / QR)</button>
+
+      <div class="cm-row">
+        <button class="btn ghost" id="cmCancel" type="button">Cancel</button>
       </div>
     </div>
   </div>
+</div>
+
 
   <!-- MUST: config loader first -->
   <script src="./app-config.js"></script>
