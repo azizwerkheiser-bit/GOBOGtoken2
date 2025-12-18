@@ -11,4 +11,6 @@ async function loadGobogConfig(){
 
   window.GOBOG_CONFIG = cfg;
   return cfg;
+  window.loadGobogConfig = loadGobogConfig;
+
 }
