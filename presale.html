@@ -11,7 +11,7 @@
   <!-- ethers (UMD) -->
   <script src="https://cdn.jsdelivr.net/npm/ethers@6.14.0/dist/ethers.umd.min.js"></script>
 
-  <!-- ❌ REMOVE WalletConnect UMD (ini biang “UMD missing”) -->
+  <!-- ❌ REMOVE WalletConnect UMD -->
   <!-- <script src="https://cdn.jsdelivr.net/npm/@walletconnect/ethereum-provider@2.13.0/dist/index.umd.js"></script> -->
 </head>
 
@@ -109,7 +109,7 @@
   <!-- MUST: config loader first -->
   <script src="./app-config.js"></script>
 
-  <!-- Your logic -->
-  <script src="./presale.js"></script>
+  <!-- Your logic (✅ make it module for WalletConnect import) -->
+  <script type="module" src="./presale.js"></script>
 </body>
 </html>
