@@ -164,10 +164,6 @@
   let presale = null;
   let wcProvider = null;
 
-  function getWCGlobal() {
-    return window.EthereumProvider || window.WalletConnectEthereumProvider;
-  }
-
   async function connectWithEIP1193(p, label) {
     eip1193 = p;
     provider = new ethers.BrowserProvider(eip1193);
@@ -190,6 +186,13 @@
     await refresh();
   }
 
+  // ✅ NEW: load WalletConnect provider via ESM (no UMD globals)
+  async function loadWalletConnectProvider() {
+    const mod = await import("https://cdn.jsdelivr.net/npm/@walletconnect/ethereum-provider@2.23.1/+esm");
+    if (!mod?.EthereumProvider) throw new Error("WalletConnect module loaded but EthereumProvider missing.");
+    return mod.EthereumProvider;
+  }
+
   async function connectUnified() {
     // 1) Injected first (desktop extension or wallet browser)
     if (window.ethereum) {
@@ -198,14 +201,13 @@
     }
 
     // 2) WalletConnect for mobile browser
-    const WC = getWCGlobal();
-    if (!WC) throw new Error("WalletConnect provider script not loaded (UMD missing).");
-
     if (!cfg.WALLETCONNECT_PROJECT_ID) throw new Error("Missing WALLETCONNECT_PROJECT_ID in config.json");
     if (!cfg.RPC_URL) throw new Error("Missing RPC_URL in config.json");
 
+    const EthereumProvider = await loadWalletConnectProvider();
+
     if (!wcProvider) {
-      wcProvider = await WC.init({
+      wcProvider = await EthereumProvider.init({
         projectId: cfg.WALLETCONNECT_PROJECT_ID,
         chains: [Number(cfg.CHAIN_ID)],
         rpcMap: { [Number(cfg.CHAIN_ID)]: cfg.RPC_URL },
@@ -276,73 +278,4 @@
       }
       const tx = await presale.buy(amt);
       log("Buy tx: " + tx.hash);
-      await tx.wait();
-      log("Buy confirmed.");
-      await refresh();
-    } catch (e) {
-      log("Buy error: " + (e?.shortMessage || e?.message || String(e)));
-    }
-  }
-
-  async function claim() {
-    try {
-      const tx = await presale.claim();
-      log("Claim tx: " + tx.hash);
-      await tx.wait();
-      log("Claim confirmed.");
-      await refresh();
-    } catch (e) {
-      log("Claim error: " + (e?.shortMessage || e?.message || String(e)));
-    }
-  }
-
-  async function finalize() {
-    try {
-      const ok = await presale.canFinalizeNow();
-      if (!ok) {
-        log("Cannot finalize yet (time not ended / not sold out).");
-        return;
-      }
-      const tx = await presale.finalize();
-      log("Finalize tx: " + tx.hash);
-      await tx.wait();
-      log("Finalize confirmed.");
-      await refresh();
-    } catch (e) {
-      log("Finalize error: " + (e?.shortMessage || e?.message || String(e)));
-    }
-  }
-
-  function updateEstimate() {
-    const amtStr = ($("amt").value || "").trim();
-    if (!amtStr) { $("estOut").textContent = "Estimated output: -"; return; }
-
-    const x = Number(amtStr);
-    if (!isFinite(x) || x <= 0) { $("estOut").textContent = "Estimated output: -"; return; }
-
-    const rate = cfg.USE_PHASE_RATE_FOR_ESTIMATE ? getUiTokensPerUsdt() : 15;
-    const out = x * rate;
-    const tag = cfg.USE_PHASE_RATE_FOR_ESTIMATE ? "UI phase rate" : "Base rate";
-    $("estOut").textContent = `Estimated output (${tag}): ${out.toLocaleString()} GOBG`;
-  }
-
-  // ---- bind UI ----
-  $("connectBtn")?.addEventListener("click", async (e) => {
-    e.preventDefault();
-    try {
-      await connectUnified();
-    } catch (err) {
-      const msg = err?.message || String(err);
-      log("Connect error: " + msg);
-      alert("Connect failed: " + msg);
-    }
-  });
-
-  $("approveBtn")?.addEventListener("click", approveUSDT);
-  $("buyBtn")?.addEventListener("click", buy);
-  $("claimBtn")?.addEventListener("click", claim);
-  $("finalizeBtn")?.addEventListener("click", finalize);
-  $("amt")?.addEventListener("input", updateEstimate);
-
-  setInterval(() => { if (signer) refresh(); }, 10000);
-})();
+      await tx.wait()
