@@ -31,7 +31,7 @@
     { "name": "Phase 6", "duration_days": 7, "price_idr_per_gobg": 3500, "usdt_per_gobg": 0.233333, "gobg_per_1_usdt": 4.285714 },
     { "name": "Phase 7", "duration_days": 7, "price_idr_per_gobg": 4000, "usdt_per_gobg": 0.266667, "gobg_per_1_usdt": 3.75 },
     { "name": "Phase 8", "duration_days": 7, "price_idr_per_gobg": 4500, "usdt_per_gobg": 0.3,      "gobg_per_1_usdt": 3.333333 },
-    { "name": "Phase 9 (Discount)", "duration_days": 4, "price_idr_per_gobg": 1000, "usdt_per_gobg": 0.066667, "gobg_per_1_usdt": 15.0 }
+    { "name": "Phase 9", "duration_days": 4, "price_idr_per_gobg": 1000, "usdt_per_gobg": 0.066667, "gobg_per_1_usdt": 15.0 }
   ],
 
   "IMPLIED_USDT_IDR_RATE": 15000,
