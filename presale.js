@@ -42,7 +42,7 @@
 
   const loadGobogConfig = await waitFor(() => window.loadGobogConfig, 12000);
   if (!loadGobogConfig) {
-    alert("Fatal: loadGobogConfig() belum ada.\nPastikan app-config.js ke-load sebelum presale.js.");
+    alert("Fatal: loadGobogConfig() belum ada.\nPastikan app-config.js ke-load sebelum presale.js.\n\nTIP: di app-config.js tambahin: window.loadGobogConfig = loadGobogConfig;");
     return;
   }
 
@@ -109,10 +109,17 @@
   cfg.RPC_URL = cfg.RPC_URL || "https://bsc-dataseed.binance.org/";
   cfg.EXPLORER_BASE = String(cfg.EXPLORER_BASE || "https://bscscan.com").replace(/\/$/, "");
   cfg.SITE_URL = cfg.SITE_URL || window.location.origin;
+
+  // decimals: default sementara, nanti kita coba auto-detect via decimals()
   cfg.USDT_DECIMALS = Number(cfg.USDT_DECIMALS ?? 18);
   cfg.TOKEN_DECIMALS = Number(cfg.TOKEN_DECIMALS ?? 18);
+
   cfg.BASE_RATE_GOBG_PER_USDT = Number(cfg.BASE_RATE_GOBG_PER_USDT || 15);
   cfg.USE_PHASE_RATE_FOR_ESTIMATE = Boolean(cfg.USE_PHASE_RATE_FOR_ESTIMATE);
+
+  // approve behavior: biar sesuai teks "Approve once"
+  // set false kalau mau approve pas sesuai nominal input
+  cfg.APPROVE_MAX = (cfg.APPROVE_MAX === undefined) ? true : Boolean(cfg.APPROVE_MAX);
 
   const required = ["USDT_ADDRESS", "PRESALE_ADDRESS"];
   const missing = required.filter((k) => !cfg[k]);
@@ -125,13 +132,17 @@
 
   const PRESALE_CAP = Number(cfg.PRESALE_TOKEN_CAP || 500000);
 
-  safeHref("explorerPresale", cfg.PRESALE_EXPLORER_URL || `${cfg.EXPLORER_BASE}/address/${cfg.PRESALE_ADDRESS}`);
+  safeHref(
+    "explorerPresale",
+    cfg.PRESALE_EXPLORER_URL || `${cfg.EXPLORER_BASE}/address/${cfg.PRESALE_ADDRESS}`
+  );
 
   // ----- ABI -----
   const erc20Abi = [
     "function balanceOf(address) view returns (uint256)",
     "function allowance(address owner, address spender) view returns (uint256)",
-    "function approve(address spender, uint256 value) returns (bool)"
+    "function approve(address spender, uint256 value) returns (bool)",
+    "function decimals() view returns (uint8)"
   ];
 
   const presaleAbi = [
@@ -276,8 +287,67 @@
     }
   }
 
+  // Robust WC export detection (UMD beda-beda)
   function getWCClass() {
-    return window.WalletConnectEthereumProvider || window.EthereumProvider || null;
+    const g = window.WalletConnectEthereumProvider || window.EthereumProvider || null;
+    if (!g) return null;
+    if (typeof g.init === "function") return g;
+    const cand = g.EthereumProvider || g.default || g?.WalletConnectEthereumProvider;
+    if (cand && typeof cand.init === "function") return cand;
+    return null;
+  }
+
+  let boundEip = null;
+  function bindEip1193Events(eip1193, label) {
+    if (!eip1193?.on) return;
+    if (boundEip === eip1193) return;
+    boundEip = eip1193;
+
+    eip1193.on("accountsChanged", async (accounts) => {
+      try {
+        const a = Array.isArray(accounts) ? accounts[0] : null;
+        log(`${label}: accountsChanged -> ${a || "-"}`);
+        if (!a) {
+          // disconnected-ish
+          signer = null; userAddr = null;
+          setTxButtonsEnabled(false);
+          safeText("wallet", "-");
+          return;
+        }
+        // refresh signer/address
+        if (provider) {
+          signer = await provider.getSigner();
+          userAddr = await signer.getAddress();
+          safeText("wallet", userAddr);
+          await refresh();
+        }
+      } catch (e) {
+        log(`${label}: accountsChanged error: ` + (e?.message || String(e)));
+      }
+    });
+
+    eip1193.on("chainChanged", async (chainIdHex) => {
+      try {
+        log(`${label}: chainChanged -> ${String(chainIdHex)}`);
+        if (provider) {
+          const net = await provider.getNetwork();
+          const cid = Number(net.chainId);
+          safeText("netName", `${cfg.CHAIN_NAME} (cfg ${cfg.CHAIN_ID}) • yours: ${cid} • via: ${label}`);
+          setTxButtonsEnabled(cid === Number(cfg.CHAIN_ID));
+          await refresh();
+          await refreshGlobalStats();
+        }
+      } catch (e) {
+        log(`${label}: chainChanged error: ` + (e?.message || String(e)));
+      }
+    });
+
+    eip1193.on("disconnect", () => {
+      log(`${label}: disconnected`);
+      signer = null; userAddr = null;
+      setTxButtonsEnabled(false);
+      safeText("wallet", "-");
+    });
   }
 
   async function ensureInjectedChain() {
@@ -312,6 +382,8 @@
 
   async function connectWithEIP1193(eip1193, label) {
     provider = new ethers.BrowserProvider(eip1193);
+
+    // request accounts (WC/injected)
     try { await provider.send("eth_requestAccounts", []); } catch (_) {}
 
     signer = await provider.getSigner();
@@ -331,6 +403,8 @@
     usdt = new ethers.Contract(cfg.USDT_ADDRESS, erc20Abi, signer);
     presale = new ethers.Contract(cfg.PRESALE_ADDRESS, presaleAbi, signer);
 
+    bindEip1193Events(eip1193, label);
+
     log("Connected: " + userAddr);
     await refresh();
     await refreshGlobalStats();
@@ -345,7 +419,7 @@
   async function ensureWalletConnectProvider() {
     const WC = getWCClass();
     if (!WC || typeof WC.init !== "function") {
-      throw new Error("WalletConnect belum ke-load.\nKalau CDN keblok, fitur WC memang gak bisa jalan (Injected masih bisa).");
+      throw new Error("WalletConnect belum ke-load (init missing).\nCek CDN / file WC UMD.");
     }
     if (!cfg.WALLETCONNECT_PROJECT_ID) throw new Error("Missing WALLETCONNECT_PROJECT_ID in config.json");
     if (!cfg.RPC_URL) throw new Error("Missing RPC_URL in config.json");
@@ -370,7 +444,12 @@
 
   async function connectWC() {
     const p = await ensureWalletConnectProvider();
-    await p.connect();
+
+    // beberapa versi pakai connect(), beberapa pakai enable()
+    if (typeof p.connect === "function") await p.connect();
+    else if (typeof p.enable === "function") await p.enable();
+    // sisanya: connectWithEIP1193 akan trigger eth_requestAccounts
+
     await connectWithEIP1193(p, "WalletConnect");
   }
 
@@ -381,6 +460,10 @@
     usdtRead = new ethers.Contract(cfg.USDT_ADDRESS, erc20Abi, rpc);
     if (cfg.TOKEN_ADDRESS) tokenRead = new ethers.Contract(cfg.TOKEN_ADDRESS, erc20Abi, rpc);
     presaleRead = new ethers.Contract(cfg.PRESALE_ADDRESS, [...presaleAbi, ...presaleStatsAbi], rpc);
+
+    // auto-detect decimals (kalau contract support)
+    try { cfg.USDT_DECIMALS = Number(await usdtRead.decimals()); } catch (_) {}
+    try { if (tokenRead) cfg.TOKEN_DECIMALS = Number(await tokenRead.decimals()); } catch (_) {}
   } catch (e) {
     log("RPC init error: " + (e?.message || String(e)));
   }
@@ -471,9 +554,13 @@
       const amt = parseUnitsSafe(inp.value, cfg.USDT_DECIMALS);
 
       const allowance = await usdt.allowance(userAddr, cfg.PRESALE_ADDRESS);
+
+      // approve once (max) biar ga approve berulang
+      const approveValue = cfg.APPROVE_MAX ? ethers.MaxUint256 : amt;
+
       if (allowance >= amt) { log("Allowance already sufficient."); return; }
 
-      const tx = await usdt.approve(cfg.PRESALE_ADDRESS, amt);
+      const tx = await usdt.approve(cfg.PRESALE_ADDRESS, approveValue);
       log("Approve tx: " + tx.hash);
       await tx.wait();
       log("Approve confirmed.");
@@ -534,6 +621,7 @@
   function openModal() {
     if (!backdrop) return;
     if (btnInjected) btnInjected.disabled = !window.ethereum;
+    if (btnWC) btnWC.disabled = !getWCClass(); // << biar gak “klik WC tapi kosong”
     backdrop.classList.add("show");
     backdrop.setAttribute("aria-hidden", "false");
   }
