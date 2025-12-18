@@ -5,51 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>GOBOG (GOBG) — Collector Coin</title>
   <meta name="description" content="GOBOG (GOBG) is a collector coin inspired by Majapahit-era coin culture. Presale in USDT on BNB Chain." />
+
   <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Javanese&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="./styles.css?v=72" />
-<link rel="icon" href="./assets/gobog.svg" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Javanese&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="./styles.css?v=72" />
+  <link rel="icon" href="./assets/gobog.svg" />
 </head>
-  <script>
-  (async () => {
-    const cfg = await loadGobogConfig();
-
-    // fill addresses
-    document.querySelector('#tokenAddr').textContent = cfg.TOKEN_ADDRESS || '0x...';
-    document.querySelector('#presaleAddr').textContent = cfg.PRESALE_ADDRESS || '0x...';
-    document.querySelector('#usdtAddr').textContent = cfg.USDT_ADDRESS || '0x...';
-
-    // links
-    const tw2 = document.querySelector('#twLink2');
-    if (tw2) { tw2.textContent = cfg.TWITTER || '@GOBOGtoken'; tw2.href = cfg.https://x.com/GOBOGtoken || '#'; }
-
-    const tokenEx2 = document.querySelector('#tokenExplorer2');
-    if (tokenEx2) tokenEx2.href = cfg.TOKEN_EXPLORER_URL || '#';
-
-    const presaleEx2 = document.querySelector('#presaleExplorer2');
-    if (presaleEx2) presaleEx2.href = cfg.PRESALE_EXPLORER_URL || '#';
-
-    // copy buttons
-    document.querySelectorAll('.copyBtn').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        const sel = btn.getAttribute('data-copy');
-        const el = document.querySelector(sel);
-        const text = (el?.textContent || '').trim();
-        if (!text) return;
-
-        try {
-          await navigator.clipboard.writeText(text);
-          const old = btn.textContent;
-          btn.textContent = 'Copied';
-          setTimeout(() => btn.textContent = old, 900);
-        } catch (e) {
-          alert('Copy failed. You can manually select and copy the address.');
-        }
-      });
-    });
-  })().catch(console.error);
-</script>
 
 <body>
   <header class="container header">
@@ -64,6 +27,9 @@
       <a href="#about">Background</a>
       <a href="#tokenomics">Tokenomics</a>
       <a href="#presale">Presale</a>
+      <a href="#howtobuy">How to Buy</a>
+      <a href="#gallery">Gallery</a>
+      <a href="#faq">FAQ</a>
       <a class="btn small" href="./presale.html">Open Presale</a>
     </nav>
   </header>
@@ -172,6 +138,113 @@
       <a class="btn" href="./presale.html">Open Presale dApp</a>
     </section>
 
+    <section id="howtobuy" class="container section">
+      <h2>How to Buy</h2>
+
+      <div class="grid2">
+        <div class="card">
+          <h3>Step-by-step</h3>
+          <ol class="list">
+            <li><strong>Install MetaMask</strong> (browser extension).</li>
+            <li><strong>Switch network</strong> to BNB Smart Chain.</li>
+            <li><strong>Get USDT</strong> on BNB Smart Chain (and a little BNB for gas).</li>
+            <li>Open the <strong>Presale dApp</strong> and click <strong>Connect</strong>.</li>
+            <li>Enter USDT amount → click <strong>Approve</strong> (one-time).</li>
+            <li>Click <strong>Buy</strong>. After purchase, click <strong>Claim</strong> when available.</li>
+            <li>When presale ends, anyone can call <strong>Finalize</strong> (permissionless).</li>
+          </ol>
+
+          <div class="note small">
+            Always verify contract addresses on the official links below.
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>Official Links & Contracts</h3>
+
+          <div class="kv">
+            <div>Twitter</div>
+            <div><a id="twLink2" href="#" target="_blank" rel="noreferrer">@gobog</a></div>
+
+            <div>Token</div>
+            <div class="addr-row">
+              <code id="tokenAddr" class="addr mono">0x...</code>
+              <button class="btn small ghost copyBtn" data-copy="#tokenAddr">Copy</button>
+              <a id="tokenExplorer2" class="small" href="#" target="_blank" rel="noreferrer">Explorer</a>
+            </div>
+
+            <div>Presale</div>
+            <div class="addr-row">
+              <code id="presaleAddr" class="addr mono">0x...</code>
+              <button class="btn small ghost copyBtn" data-copy="#presaleAddr">Copy</button>
+              <a id="presaleExplorer2" class="small" href="#" target="_blank" rel="noreferrer">Explorer</a>
+            </div>
+
+            <div>USDT</div>
+            <div class="addr-row">
+              <code id="usdtAddr" class="addr mono">0x...</code>
+              <button class="btn small ghost copyBtn" data-copy="#usdtAddr">Copy</button>
+            </div>
+          </div>
+
+          <hr class="sep" />
+
+          <a class="btn" href="./presale.html">Open Presale dApp</a>
+        </div>
+      </div>
+    </section>
+
+    <section id="gallery" class="container section">
+      <h2>Majapahit Gallery</h2>
+      <p class="muted small">a painting of the beauty of our kingdom <span class="mono">which was once glorious</span> in its time.</p>
+
+      <div class="gallery">
+        <a class="gitem" href="./assets/gallery/gobog-coin-01.jpg" target="_blank" rel="noreferrer">
+          <img src="./assets/gallery/gobog-coin-01.jpg" alt="Majapahit 1">
+        </a>
+        <a class="gitem" href="./assets/gallery/gobog-coin-03.jpg" target="_blank" rel="noreferrer">
+          <img src="./assets/gallery/gobog-coin-03.jpg" alt="Majapahit 2">
+        </a>
+        <a class="gitem" href="./assets/gallery/gobog-coin-04.jpg" target="_blank" rel="noreferrer">
+          <img src="./assets/gallery/gobog-coin-04.jpg" alt="Majapahit 3">
+        </a>
+        <a class="gitem" href="./assets/gallery/gobog-coin-05.jpg" target="_blank" rel="noreferrer">
+          <img src="./assets/gallery/gobog-coin-05.jpg" alt="Majapahit 4">
+        </a>
+      </div>
+    </section>
+
+    <section id="faq" class="container section">
+      <h2>FAQ</h2>
+
+      <div class="card">
+        <details class="faq">
+          <summary>Is there minting or hidden admin control?</summary>
+          <p>No. The token supply is fixed. The presale is designed to be transparent and minimal.</p>
+        </details>
+
+        <details class="faq">
+          <summary>Are there taxes, blacklists, or pauses?</summary>
+          <p>No. GOBOG is meant to be a simple collectible token (no “weird features”).</p>
+        </details>
+
+        <details class="faq">
+          <summary>What happens to unsold presale tokens?</summary>
+          <p>Unsold presale allocation is burned at finalize.</p>
+        </details>
+
+        <details class="faq">
+          <summary>When can I claim my tokens?</summary>
+          <p>Claiming depends on the presale contract rules. The dApp will show your claimable balance.</p>
+        </details>
+
+        <details class="faq">
+          <summary>Will the price go up?</summary>
+          <p>Price is market-driven. GOBOG is a collectible. There are no profit promises.</p>
+        </details>
+      </div>
+    </section>
+
     <section class="container section">
       <h2>Disclaimer</h2>
       <p class="small muted">
@@ -185,124 +258,65 @@
     <div class="small muted">Static site • edit config.json to update addresses</div>
   </footer>
 
-  <script src="./app-config.js"></script>
+  <!-- load config helper first -->
+  <script src="./app-config.js?v=1"></script>
+
+  <!-- one script to rule them all -->
   <script>
-    document.getElementById('year').textContent = new Date().getFullYear();
-    (async () => {
-      const cfg = await loadGobogConfig();
-      const tw = document.getElementById('twLink');
-      tw.textContent = (cfg.TWITTER || '@gobog');
-      tw.href = cfg.TWITTER_URL || '#';
-      const explorer = document.getElementById('tokenExplorer');
-      explorer.href = cfg.TOKEN_EXPLORER_URL || '#';
-    })().catch(console.error);
+    document.addEventListener('DOMContentLoaded', async () => {
+      document.getElementById('year').textContent = new Date().getFullYear();
+
+      try {
+        const cfg = await loadGobogConfig();
+
+        // Addresses
+        const tokenAddrEl = document.querySelector('#tokenAddr');
+        const presaleAddrEl = document.querySelector('#presaleAddr');
+        const usdtAddrEl = document.querySelector('#usdtAddr');
+        if (tokenAddrEl) tokenAddrEl.textContent = cfg.TOKEN_ADDRESS || '0x...';
+        if (presaleAddrEl) presaleAddrEl.textContent = cfg.PRESALE_ADDRESS || '0x...';
+        if (usdtAddrEl) usdtAddrEl.textContent = cfg.USDT_ADDRESS || '0x...';
+
+        // Twitter links
+        const tw = document.getElementById('twLink');
+        const tw2 = document.getElementById('twLink2');
+        const twitterText = cfg.TWITTER || '@GOBOGtoken';
+        const twitterUrl = cfg.TWITTER_URL || 'https://x.com/GOBOGtoken';
+
+        if (tw)  { tw.textContent = twitterText;  tw.href  = twitterUrl; }
+        if (tw2) { tw2.textContent = twitterText; tw2.href = twitterUrl; }
+
+        // Explorer links
+        const tokenEx = document.getElementById('tokenExplorer');
+        const tokenEx2 = document.getElementById('tokenExplorer2');
+        const presaleEx2 = document.getElementById('presaleExplorer2');
+
+        if (tokenEx)  tokenEx.href  = cfg.TOKEN_EXPLORER_URL || '#';
+        if (tokenEx2) tokenEx2.href = cfg.TOKEN_EXPLORER_URL || '#';
+        if (presaleEx2) presaleEx2.href = cfg.PRESALE_EXPLORER_URL || '#';
+
+        // Copy buttons
+        document.querySelectorAll('.copyBtn').forEach(btn => {
+          btn.addEventListener('click', async () => {
+            const sel = btn.getAttribute('data-copy');
+            const el = document.querySelector(sel);
+            const text = (el?.textContent || '').trim();
+            if (!text) return;
+
+            try {
+              await navigator.clipboard.writeText(text);
+              const old = btn.textContent;
+              btn.textContent = 'Copied';
+              setTimeout(() => btn.textContent = old, 900);
+            } catch (e) {
+              alert('Copy failed. You can manually select and copy the address.');
+            }
+          });
+        });
+      } catch (err) {
+        console.error(err);
+      }
+    });
   </script>
 </body>
 </html>
-<section id="howtobuy" class="container section">
-  <h2>How to Buy</h2>
-
-  <div class="grid2">
-    <div class="card">
-      <h3>Step-by-step</h3>
-      <ol class="list">
-        <li><strong>Install MetaMask</strong> (browser extension).</li>
-        <li><strong>Switch network</strong> to BNB Smart Chain.</li>
-        <li><strong>Get USDT</strong> on BNB Smart Chain (and a little BNB for gas).</li>
-        <li>Open the <strong>Presale dApp</strong> and click <strong>Connect</strong>.</li>
-        <li>Enter USDT amount → click <strong>Approve</strong> (one-time).</li>
-        <li>Click <strong>Buy</strong>. After purchase, click <strong>Claim</strong> when available.</li>
-        <li>When presale ends, anyone can call <strong>Finalize</strong> (permissionless).</li>
-      </ol>
-
-      <div class="note small">
-        Always verify contract addresses on the official links below.
-      </div>
-    </div>
-
-    <div class="card">
-      <h3>Official Links & Contracts</h3>
-
-      <div class="kv">
-        <div>Twitter</div>
-        <div><a id="twLink2" href="#" target="_blank" rel="noreferrer">@gobog</a></div>
-
-        <div>Token</div>
-        <div class="addr-row">
-          <code id="tokenAddr" class="addr mono">0x...</code>
-          <button class="btn small ghost copyBtn" data-copy="#tokenAddr">Copy</button>
-          <a id="tokenExplorer2" class="small" href="#" target="_blank" rel="noreferrer">Explorer</a>
-        </div>
-
-        <div>Presale</div>
-        <div class="addr-row">
-          <code id="presaleAddr" class="addr mono">0x...</code>
-          <button class="btn small ghost copyBtn" data-copy="#presaleAddr">Copy</button>
-          <a id="presaleExplorer2" class="small" href="#" target="_blank" rel="noreferrer">Explorer</a>
-        </div>
-
-        <div>USDT</div>
-        <div class="addr-row">
-          <code id="usdtAddr" class="addr mono">0x...</code>
-          <button class="btn small ghost copyBtn" data-copy="#usdtAddr">Copy</button>
-        </div>
-      </div>
-
-      <hr class="sep" />
-
-      <a class="btn" href="./presale.html">Open Presale dApp</a>
-    </div>
-  </div>
-</section>
-
-<section id="gallery" class="container section">
-  <h2>Majapahit Gallery</h2>
-  <p class="muted small">a painting of the beauty of our kingdom <span class="mono">which was once glorious</span> in its time.</p>
-
-  <div class="gallery">
-    <a class="gitem" href="./assets/gallery/gobog-coin-01.jpg" target="_blank" rel="noreferrer">
-      <img src="./assets/gallery/gobog-coin-01.jpg" alt="Majapahit 1">
-    </a>
-    <a class="gitem" href="./assets/gallery/gobog-coin-03.jpg" target="_blank" rel="noreferrer">
-      <img src="./assets/gallery/gobog-coin-03.jpg" alt="Majapahit 2">
-    </a>
-    <a class="gitem" href="./assets/gallery/gobog-coin-04.jpg" target="_blank" rel="noreferrer">
-      <img src="./assets/gallery/gobog-coin-04.jpg" alt="Majapahit 3">
-    </a>
-    <a class="gitem" href="./assets/gallery/gobog-coin-05.jpg" target="_blank" rel="noreferrer">
-      <img src="./assets/gallery/gobog-coin-05.jpg" alt="Majapahit 3">
-    </a>
-  </div>
-</section>
-
-<section id="faq" class="container section">
-  <h2>FAQ</h2>
-
-  <div class="card">
-    <details class="faq">
-      <summary>Is there minting or hidden admin control?</summary>
-      <p>No. The token supply is fixed. The presale is designed to be transparent and minimal.</p>
-    </details>
-
-    <details class="faq">
-      <summary>Are there taxes, blacklists, or pauses?</summary>
-      <p>No. GOBOG is meant to be a simple collectible token (no “weird features”).</p>
-    </details>
-
-    <details class="faq">
-      <summary>What happens to unsold presale tokens?</summary>
-      <p>Unsold presale allocation is burned at finalize.</p>
-    </details>
-
-    <details class="faq">
-      <summary>When can I claim my tokens?</summary>
-      <p>Claiming depends on the presale contract rules. The dApp will show your claimable balance.</p>
-    </details>
-
-    <details class="faq">
-      <summary>Will the price go up?</summary>
-      <p>Price is market-driven. GOBOG is a collectible. There are no profit promises.</p>
-    </details>
-  </div>
-</section>
-
