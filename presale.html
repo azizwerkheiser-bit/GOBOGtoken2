@@ -184,12 +184,13 @@
         if (!window.ethers) throw new Error("ethers gagal load (CDN keblok / offline).");
 
         // 1) WalletConnect UMD (fallback CDN)
-        try {
-          await loadScript("https://cdn.jsdelivr.net/npm/@walletconnect/ethereum-provider@2.13.0/dist/index.umd.min.js");
-        } catch (e1) {
-          console.warn(e1);
-          await loadScript("https://unpkg.com/@walletconnect/ethereum-provider@2.13.0/dist/index.umd.min.js");
-        }
+       try {
+  await loadScript("https://cdn.jsdelivr.net/npm/@walletconnect/ethereum-provider@2.13.0/dist/index.umd.js");
+} catch (e1) {
+  console.warn(e1);
+  await loadScript("https://unpkg.com/@walletconnect/ethereum-provider@2.13.0/dist/index.umd.js");
+}
+
 
         // 2) Normalize global (beda versi kadang beda nama)
         window.WalletConnectEthereumProvider =
