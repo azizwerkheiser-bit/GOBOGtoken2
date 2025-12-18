@@ -8,6 +8,12 @@
     logEl.textContent = `[${ts}] ${s}\n` + logEl.textContent;
   };
 
+  // Catch silent promise errors (biar gak jadi "hantu")
+  window.addEventListener("unhandledrejection", (e) => {
+    const msg = e?.reason?.shortMessage || e?.reason?.message || String(e?.reason || e);
+    log("Unhandled: " + msg);
+  });
+
   function formatDDHHMMSS(totalSeconds) {
     const s = Math.max(0, Math.floor(totalSeconds));
     const dd = Math.floor(s / 86400);
@@ -42,13 +48,19 @@
     return;
   }
 
+  // Safe defaults (kalau config kelupaan)
+  cfg.CHAIN_ID = Number(cfg.CHAIN_ID || 56);
+  cfg.CHAIN_NAME = cfg.CHAIN_NAME || "BNB Smart Chain";
+  cfg.RPC_URL = cfg.RPC_URL || "https://bsc-dataseed.binance.org/";
+  cfg.EXPLORER_BASE = (cfg.EXPLORER_BASE || "https://bscscan.com").replace(/\/$/, "");
+  cfg.SITE_URL = cfg.SITE_URL || window.location.origin;
+
   const PRESALE_CAP = Number(cfg.PRESALE_TOKEN_CAP || 500000);
 
   // ---- explorer link ----
   const ex = $("explorerPresale");
   if (ex) {
-    const base = (cfg.EXPLORER_BASE || "").replace(/\/$/, "");
-    ex.href = cfg.PRESALE_EXPLORER_URL || (base ? `${base}/address/${cfg.PRESALE_ADDRESS}` : "#");
+    ex.href = cfg.PRESALE_EXPLORER_URL || `${cfg.EXPLORER_BASE}/address/${cfg.PRESALE_ADDRESS}`;
   }
 
   // ---- ABI ----
@@ -183,7 +195,45 @@
   let trustDeepLinkNext = false;
 
   function getWCGlobal() {
-    return window.EthereumProvider || window.WalletConnectEthereumProvider;
+    // Dengan presale_fixed.html (UMD), ini yang harus ada:
+    return window.WalletConnectEthereumProvider || window.EthereumProvider;
+  }
+
+  async function ensureInjectedChain() {
+    // Supaya injected user gak nyangkut di Ethereum/Polygon dll
+    const eth = window.ethereum;
+    if (!eth?.request) return;
+
+    const targetId = Number(cfg.CHAIN_ID);
+    const targetHex = "0x" + targetId.toString(16);
+
+    try {
+      const current = await eth.request({ method: "eth_chainId" });
+      if (String(current).toLowerCase() === targetHex.toLowerCase()) return;
+    } catch (_) {}
+
+    try {
+      await eth.request({
+        method: "wallet_switchEthereumChain",
+        params: [{ chainId: targetHex }],
+      });
+    } catch (e) {
+      // chain belum ada di wallet
+      if (e && e.code === 4902) {
+        await eth.request({
+          method: "wallet_addEthereumChain",
+          params: [{
+            chainId: targetHex,
+            chainName: cfg.CHAIN_NAME || "BNB Smart Chain",
+            rpcUrls: [cfg.RPC_URL],
+            nativeCurrency: { name: "BNB", symbol: "BNB", decimals: 18 },
+            blockExplorerUrls: [cfg.EXPLORER_BASE],
+          }],
+        });
+      } else {
+        throw e;
+      }
+    }
   }
 
   async function connectWithEIP1193(p, label) {
@@ -194,27 +244,37 @@
 
     signer = await provider.getSigner();
     userAddr = await signer.getAddress();
-    $("wallet").textContent = userAddr;
+    const walletEl = $("wallet");
+    if (walletEl) walletEl.textContent = userAddr;
 
     const net = await provider.getNetwork();
-    $("netName").textContent = `${cfg.CHAIN_NAME} (cfg ${cfg.CHAIN_ID}) • yours: ${Number(net.chainId)} • via: ${label}`;
+    const netEl = $("netName");
+    if (netEl) {
+      netEl.textContent = `${cfg.CHAIN_NAME} (cfg ${cfg.CHAIN_ID}) • yours: ${Number(net.chainId)} • via: ${label}`;
+    }
+
+    if (Number(net.chainId) !== Number(cfg.CHAIN_ID)) {
+      log(`Wrong network: connected ${Number(net.chainId)} but need ${Number(cfg.CHAIN_ID)}.`);
+      alert(`Wrong network.\n\nConnected: ${Number(net.chainId)}\nRequired: ${Number(cfg.CHAIN_ID)} (${cfg.CHAIN_NAME})`);
+    }
 
     usdt = new ethers.Contract(cfg.USDT_ADDRESS, erc20Abi, signer);
     presale = new ethers.Contract(cfg.PRESALE_ADDRESS, presaleAbi, signer);
 
     log("Connected: " + userAddr);
     await refresh();
-    await refreshGlobalStats(); // <-- biar bar langsung update setelah connect
+    await refreshGlobalStats(); // update bar setelah connect
   }
 
   async function connectInjectedOnly() {
     if (!window.ethereum) throw new Error("Injected wallet tidak ditemukan. Coba buka lewat DApp Browser (Trust/MetaMask) atau pakai extension di desktop.");
+    await ensureInjectedChain();
     await connectWithEIP1193(window.ethereum, "Injected");
   }
 
   async function ensureWalletConnectProvider() {
     const WC = getWCGlobal();
-    if (!WC) throw new Error("WalletConnect belum ke-load.");
+    if (!WC) throw new Error("WalletConnect belum ke-load. Pastikan presale.html load UMD WC sebelum presale.js.");
     if (!cfg.WALLETCONNECT_PROJECT_ID) throw new Error("Missing WALLETCONNECT_PROJECT_ID in config.json");
     if (!cfg.RPC_URL) throw new Error("Missing RPC_URL in config.json");
 
@@ -232,6 +292,7 @@
         }
       });
 
+      // TrustWallet deep-link (optional)
       wcProvider.on?.("display_uri", (uri) => {
         if (trustDeepLinkNext) {
           trustDeepLinkNext = false;
@@ -241,7 +302,7 @@
         }
       });
 
-      wcProvider.on("disconnect", () => log("WalletConnect disconnected"));
+      wcProvider.on?.("disconnect", () => log("WalletConnect disconnected"));
     }
 
     return wcProvider;
@@ -298,7 +359,7 @@
     try {
       if (!usdtRead) return;
 
-      // Raised = USDT balance di kontrak presale (karena USDT ditahan sampai finalize)
+      // Raised = USDT balance di kontrak presale
       const raisedRaw = await usdtRead.balanceOf(cfg.PRESALE_ADDRESS);
       const raised = parseFloat(ethers.formatUnits(raisedRaw, cfg.USDT_DECIMALS));
 
@@ -320,22 +381,13 @@
         soldHow = "cap - token.balanceOf(presale)";
       }
 
-      // 3) fallback terakhir (kalau kamu punya rate fixed dan mau): sold ≈ raised * rate
+      // 3) fallback terakhir: sold ≈ raised * rate
       if (sold === null && Number(cfg.BASE_RATE_GOBG_PER_USDT || 0) > 0) {
         const rate = Number(cfg.BASE_RATE_GOBG_PER_USDT);
         sold = raised * rate;
         soldHow = `raised * ${rate}`;
       }
 
-      // ---- existing stats widgets (optional) ----
-      const raisedEl = $("raised");
-      const soldEl = $("sold");
-      const barEl = $("soldBar");
-      const metaEl = $("soldMeta");
-
-      if (raisedEl) raisedEl.textContent = `${nfmt(raised, 2)} USDT`;
-
-      // ---- NEW: Buy card widgets ----
       const buySoldText = $("buySoldText");
       const buySoldBar  = $("buySoldBar");
       const buyRaisedText = $("buyRaisedText");
@@ -343,27 +395,15 @@
       if (buyRaisedText) buyRaisedText.textContent = `Raised: ${nfmt(raised, 2)} USDT`;
 
       if (sold === null) {
-        if (soldEl) soldEl.textContent = `- / ${PRESALE_CAP.toLocaleString()}`;
-        if (barEl) barEl.style.width = "0%";
-
         if (buySoldText) buySoldText.textContent = `- / ${PRESALE_CAP.toLocaleString()}`;
         if (buySoldBar) buySoldBar.style.width = "0%";
       } else {
         const pct = PRESALE_CAP > 0 ? Math.min(100, (sold / PRESALE_CAP) * 100) : 0;
-
-        if (soldEl) soldEl.textContent =
-          `${nfmt(sold, 2)} / ${PRESALE_CAP.toLocaleString()} (${pct.toFixed(2)}%)`;
-        if (barEl) barEl.style.width = pct.toFixed(2) + "%";
-
         if (buySoldText) buySoldText.textContent =
           `${nfmt(sold, 2)} / ${PRESALE_CAP.toLocaleString()} (${pct.toFixed(2)}%)`;
         if (buySoldBar) buySoldBar.style.width = pct.toFixed(2) + "%";
       }
 
-      if (metaEl) {
-        if (soldHow) metaEl.textContent = `Stats mode: ${soldHow} • (Raised dari USDT balance presale).`;
-        else metaEl.textContent = `Raised dari USDT balance presale. Sold butuh token balance di presale atau fungsi totalSold().`;
-      }
     } catch (e) {
       log("Global stats error: " + (e?.shortMessage || e?.message || String(e)));
     }
@@ -378,16 +418,20 @@
         presale.endTime()
       ]);
 
-      $("usdtBal").textContent = fmt(bal, cfg.USDT_DECIMALS);
-      $("claimable").textContent = fmt(cl, cfg.TOKEN_DECIMALS);
-      $("ends").textContent = new Date(Number(end) * 1000).toLocaleString();
+      const usdtEl = $("usdtBal");
+      const clEl = $("claimable");
+      const endEl = $("ends");
+
+      if (usdtEl) usdtEl.textContent = fmt(bal, cfg.USDT_DECIMALS);
+      if (clEl) clEl.textContent = fmt(cl, cfg.TOKEN_DECIMALS);
+      if (endEl) endEl.textContent = new Date(Number(end) * 1000).toLocaleString();
     } catch (e) {
       log("Refresh error: " + (e?.shortMessage || e?.message || String(e)));
     }
   }
 
   async function approveUSDT() {
-    const amtStr = ($("amt").value || "").trim();
+    const amtStr = ($("amt")?.value || "").trim();
     if (!amtStr) return alert("Enter USDT amount first.");
     const amt = parse(amtStr, cfg.USDT_DECIMALS);
 
@@ -409,7 +453,7 @@
   }
 
   async function buy() {
-    const amtStr = ($("amt").value || "").trim();
+    const amtStr = ($("amt")?.value || "").trim();
     if (!amtStr) return alert("Enter USDT amount first.");
     const amt = parse(amtStr, cfg.USDT_DECIMALS);
 
@@ -462,23 +506,25 @@
   }
 
   function updateEstimate() {
-    const amtStr = ($("amt").value || "").trim();
-    if (!amtStr) { $("estOut").textContent = "Estimated output: -"; return; }
+    const amtStr = ($("amt")?.value || "").trim();
+    const estEl = $("estOut");
+    if (!estEl) return;
+
+    if (!amtStr) { estEl.textContent = "Estimated output: -"; return; }
 
     const x = Number(amtStr);
-    if (!isFinite(x) || x <= 0) { $("estOut").textContent = "Estimated output: -"; return; }
+    if (!isFinite(x) || x <= 0) { estEl.textContent = "Estimated output: -"; return; }
 
     const rate = cfg.USE_PHASE_RATE_FOR_ESTIMATE ? getUiTokensPerUsdt() : 15;
     const out = x * rate;
     const tag = cfg.USE_PHASE_RATE_FOR_ESTIMATE ? "UI phase rate" : "Base rate";
-    $("estOut").textContent = `Estimated output (${tag}): ${out.toLocaleString()} GOBG`;
+    estEl.textContent = `Estimated output (${tag}): ${out.toLocaleString()} GOBG`;
   }
 
   // ---- Connect Modal ----
   const backdrop = $("cmBackdrop");
   const btnInjected = $("cmInjected");
   const btnWC = $("cmWC");
-  const btnTrust = $("cmTrust");
   const btnCancel = $("cmCancel");
 
   function openConnectModal() {
@@ -512,16 +558,6 @@
   btnWC?.addEventListener("click", async () => {
     closeConnectModal();
     try { await connectWalletConnectQR(); }
-    catch (err) {
-      const msg = err?.message || String(err);
-      log("Connect error: " + msg);
-      alert("Connect failed: " + msg);
-    }
-  });
-
-  btnTrust?.addEventListener("click", async () => {
-    closeConnectModal();
-    try { await connectTrustWalletApp(); }
     catch (err) {
       const msg = err?.message || String(err);
       log("Connect error: " + msg);
