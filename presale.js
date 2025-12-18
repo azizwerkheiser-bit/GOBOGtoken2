@@ -167,11 +167,6 @@
   // Trust deep-link flag
   let trustDeepLinkNext = false;
 
-  function getWCGlobal() {
-    // dari presale.html (module) -> window.EthereumProvider
-    return window.EthereumProvider || window.WalletConnectEthereumProvider;
-  }
-
   async function connectWithEIP1193(p, label) {
     eip1193 = p;
     provider = new ethers.BrowserProvider(eip1193);
@@ -197,14 +192,47 @@
     await connectWithEIP1193(window.ethereum, "Injected");
   }
 
+  // ✅ WalletConnect: auto-load module dari CDN saat dibutuhkan (ga ngandelin presale.html)
+  async function loadEthereumProviderClass() {
+    if (window.EthereumProvider) return window.EthereumProvider;
+
+    const cdns = [
+      "https://cdn.jsdelivr.net/npm/@walletconnect/ethereum-provider@2.23.1/+esm",
+      "https://esm.sh/@walletconnect/ethereum-provider@2.23.1",
+      "https://cdn.skypack.dev/@walletconnect/ethereum-provider@2.23.1"
+    ];
+
+    log("Loading WalletConnect module…");
+    for (const url of cdns) {
+      try {
+        const mod = await import(url);
+        const EP =
+          mod?.EthereumProvider ||
+          mod?.default?.EthereumProvider ||
+          mod?.default;
+
+        if (EP) {
+          window.EthereumProvider = EP; // cache global
+          log("WalletConnect loaded via: " + url);
+          return EP;
+        }
+        log("WC module loaded but no EthereumProvider export: " + url);
+      } catch (e) {
+        log("WC load fail: " + url + " :: " + (e?.message || e));
+      }
+    }
+
+    throw new Error("WalletConnect module gagal di-load dari CDN. Coba ganti jaringan/VPN atau cek apakah CDN diblok.");
+  }
+
   async function ensureWalletConnectProvider() {
-    const WC = getWCGlobal();
-    if (!WC) throw new Error("WalletConnect belum ke-load. Pastikan internet OK & file presale.html memuat script module WalletConnect.");
     if (!cfg.WALLETCONNECT_PROJECT_ID) throw new Error("Missing WALLETCONNECT_PROJECT_ID in config.json");
     if (!cfg.RPC_URL) throw new Error("Missing RPC_URL in config.json");
 
+    const EthereumProvider = await loadEthereumProviderClass();
+
     if (!wcProvider) {
-      wcProvider = await WC.init({
+      wcProvider = await EthereumProvider.init({
         projectId: cfg.WALLETCONNECT_PROJECT_ID,
         chains: [Number(cfg.CHAIN_ID)],
         rpcMap: { [Number(cfg.CHAIN_ID)]: cfg.RPC_URL },
@@ -227,7 +255,7 @@
         }
       });
 
-      wcProvider.on("disconnect", () => log("WalletConnect disconnected"));
+      wcProvider.on?.("disconnect", () => log("WalletConnect disconnected"));
     }
 
     return wcProvider;
@@ -356,10 +384,7 @@
 
   function openConnectModal() {
     if (!backdrop) return;
-
-    // enable/disable injected button depending on availability
     if (btnInjected) btnInjected.disabled = !window.ethereum;
-
     backdrop.classList.add("show");
     backdrop.setAttribute("aria-hidden", "false");
   }
