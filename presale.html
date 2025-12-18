@@ -164,15 +164,13 @@
     </div>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/ethers@6.14.0/dist/ethers.umd.min.js" crossorigin="anonymous"></script>
-
   <script>
     (function () {
       function loadScript(src) {
         return new Promise(function (resolve, reject) {
           var s = document.createElement("script");
           s.src = src;
-          s.async = false; // penting: jangan async biar urutan aman
+          s.async = false; // urutan aman
           s.crossOrigin = "anonymous";
           s.onload = function () { resolve(src); };
           s.onerror = function () { reject(new Error("Failed to load: " + src)); };
@@ -181,30 +179,29 @@
       }
 
       async function boot() {
+        // 0) ethers (fallback CDN)
+        try {
+          await loadScript("https://cdn.jsdelivr.net/npm/ethers@6.14.0/dist/ethers.umd.min.js");
+        } catch (e0) {
+          console.warn(e0);
+          await loadScript("https://unpkg.com/ethers@6.14.0/dist/ethers.umd.min.js");
+        }
         if (!window.ethers) throw new Error("ethers gagal load (CDN keblok / offline).");
 
-        // before: if (!window.ethers) throw ...
-async function boot() {
-  // Ethers fallback
-  if (!window.ethers) {
-    try { await loadScript("https://cdn.jsdelivr.net/npm/ethers@6.14.0/dist/ethers.umd.min.js"); }
-    catch (e0) { console.warn(e0); await loadScript("https://unpkg.com/ethers@6.14.0/dist/ethers.umd.min.js"); }
-  }
-  if (!window.ethers) throw new Error("ethers gagal load (CDN keblok / offline).");
+        // 1) WalletConnect UMD (fallback CDN)
+        try {
+          await loadScript("https://cdn.jsdelivr.net/npm/@walletconnect/ethereum-provider@2.13.0/dist/index.umd.js");
+        } catch (e1) {
+          console.warn(e1);
+          await loadScript("https://unpkg.com/@walletconnect/ethereum-provider@2.13.0/dist/index.umd.js");
+        }
 
-  // WalletConnect fallback
-  try {
-    await loadScript("https://cdn.jsdelivr.net/npm/@walletconnect/ethereum-provider@2.13.0/dist/index.umd.js");
-  } catch (e1) {
-    console.warn(e1);
-    await loadScript("https://unpkg.com/@walletconnect/ethereum-provider@2.13.0/dist/index.umd.js");
-  }
+        // 2) app-config dulu
+        await loadScript("./app-config.js?v=20251218b");
 
-  // jangan overwrite global di sini (biar presale.js yang handle bentuk export WC)
-  await loadScript("./app-config.js?v=20251218b");
-  await loadScript("./presale.js?v=20251218b");
-}
-
+        // 3) baru presale.js
+        await loadScript("./presale.js?v=20251218b");
+      }
 
       boot().catch(function (err) {
         console.error(err);
@@ -214,4 +211,3 @@ async function boot() {
   </script>
 </body>
 </html>
-
