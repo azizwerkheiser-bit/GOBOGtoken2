@@ -178,6 +178,21 @@
         });
       }
 
+      function aliasWalletConnectGlobal() {
+        // Some UMD builds attach exports under a funky key:
+        // window["@walletconnect/ethereum-provider"]
+        try {
+          var pkg = window["@walletconnect/ethereum-provider"];
+          if (pkg && !window.WalletConnectEthereumProvider) {
+            var EP = pkg.EthereumProvider || pkg.default || pkg;
+            // Make it compatible with code that expects WalletConnectEthereumProvider.default.init(...)
+            window.WalletConnectEthereumProvider = { default: EP };
+          }
+        } catch (e) {
+          // ignore
+        }
+      }
+
       async function boot() {
         // 0) ethers (fallback CDN)
         try {
@@ -190,10 +205,18 @@
 
         // 1) WalletConnect UMD (fallback CDN)
         try {
-          await loadScript("https://cdn.jsdelivr.net/npm/@walletconnect/ethereum-provider@2.13.0/dist/index.umd.js");
+          await loadScript("https://cdn.jsdelivr.net/npm/@walletconnect/ethereum-provider@2.13.0/dist/index.umd.min.js");
         } catch (e1) {
           console.warn(e1);
-          await loadScript("https://unpkg.com/@walletconnect/ethereum-provider@2.13.0/dist/index.umd.js");
+          await loadScript("https://unpkg.com/@walletconnect/ethereum-provider@2.13.0/dist/index.umd.min.js");
+        }
+
+        // >>> ADD: alias global after WalletConnect script load
+        aliasWalletConnectGlobal();
+
+        // OPTIONAL GUARD: still missing? warn early (don't hard-stop, biar injected tetap jalan)
+        if (!window.WalletConnectEthereumProvider && !window["@walletconnect/ethereum-provider"]) {
+          console.warn("WalletConnect loaded but no global export found.");
         }
 
         // 2) app-config dulu
