@@ -33,6 +33,22 @@
     return null;
   }
 
+  function loadScriptTag(src) {
+    return new Promise((resolve, reject) => {
+      // jangan dobel load
+      const existed = Array.from(document.scripts).some(s => (s.src || "").includes(src));
+      if (existed) return resolve(src);
+
+      const s = document.createElement("script");
+      s.src = src;
+      s.async = false;
+      s.crossOrigin = "anonymous";
+      s.onload = () => resolve(src);
+      s.onerror = () => reject(new Error("Failed to load: " + src));
+      document.head.appendChild(s);
+    });
+  }
+
   // ----- dependencies -----
   const ethers = await waitFor(() => window.ethers, 12000);
   if (!ethers) {
@@ -110,7 +126,6 @@
   cfg = cfg || {};
   cfg.CHAIN_ID = Number(cfg.CHAIN_ID || 56);
   cfg.CHAIN_NAME = cfg.CHAIN_NAME || "BNB Smart Chain";
-  // PATCH: default RPC yang lebih aman
   cfg.RPC_URL = (cfg.RPC_URL || "https://bsc-dataseed.bnbchain.org").replace(/\s+/g, "");
   cfg.EXPLORER_BASE = String(cfg.EXPLORER_BASE || "https://bscscan.com").replace(/\/$/, "");
   cfg.SITE_URL = cfg.SITE_URL || window.location.origin;
@@ -289,7 +304,7 @@
     }
   }
 
-  // PATCH: Robust WC export detection (UMD beda-beda, termasuk window["@walletconnect/ethereum-provider"])
+  // Robust WC export detection (UMD beda-beda)
   function getWCClass() {
     const pkg =
       window.WalletConnectEthereumProvider ||
@@ -301,6 +316,32 @@
 
     const cls = pkg.EthereumProvider || pkg.default || pkg;
     return (cls && typeof cls.init === "function") ? cls : null;
+  }
+
+  // Paksa WC UMD tersedia (load ulang + polyfill kalau perlu)
+  async function ensureWalletConnectUMD() {
+    // polyfill supaya bundle WC nggak crash kalau nyari "process"/"global"
+    if (typeof window.process === "undefined") window.process = { env: {} };
+    if (typeof window.global === "undefined") window.global = window;
+
+    if (getWCClass()) return true;
+
+    const urls = [
+      "https://cdn.jsdelivr.net/npm/@walletconnect/ethereum-provider@2.13.0/dist/index.umd.min.js",
+      "https://unpkg.com/@walletconnect/ethereum-provider@2.13.0/dist/index.umd.min.js"
+    ];
+
+    for (const u of urls) {
+      try {
+        await loadScriptTag(u);
+        // kasih waktu event loop buat set global
+        await sleep(50);
+        if (getWCClass()) return true;
+      } catch (e) {
+        log("WC load failed: " + (e?.message || String(e)));
+      }
+    }
+    return !!getWCClass();
   }
 
   let boundEip = null;
@@ -420,12 +461,14 @@
   }
 
   async function ensureWalletConnectProvider() {
+    const ok = await ensureWalletConnectUMD();
     const WC = getWCClass();
-    if (!WC || typeof WC.init !== "function") {
+
+    if (!ok || !WC || typeof WC.init !== "function") {
       throw new Error(
-        "WalletConnect belum ke-load (init missing).\n" +
-        "Cek CDN / file WC UMD.\n\n" +
-        "Tips: cek console: window['@walletconnect/ethereum-provider']"
+        "WalletConnect UMD tidak terbaca.\n" +
+        "Cek Network tab: apakah index.umd.min.js berhasil 200?\n" +
+        "Cek Console: window['@walletconnect/ethereum-provider'] harus ada."
       );
     }
     if (!cfg.WALLETCONNECT_PROJECT_ID) throw new Error("Missing WALLETCONNECT_PROJECT_ID in config.json");
@@ -624,13 +667,12 @@
     if (!backdrop) return;
     if (btnInjected) btnInjected.disabled = !window.ethereum;
 
-    // PATCH: WC disabled kalau class benar-benar tidak ada
+    // Jangan disable WC lagi. Biarkan klik -> akan auto-load saat connectWC()
     if (btnWC) {
-      const wcOk = !!getWCClass();
-      btnWC.disabled = !wcOk;
-      // Biar visualnya jelas (opsional)
-      btnWC.style.opacity = wcOk ? "1" : "0.55";
-      btnWC.title = wcOk ? "" : "WalletConnect belum siap (provider UMD belum kebaca).";
+      btnWC.disabled = false;
+      btnWC.style.opacity = "1";
+      btnWC.style.pointerEvents = "auto";
+      btnWC.title = "Klik untuk WalletConnect (script akan di-load otomatis jika belum siap).";
     }
 
     backdrop.classList.add("show");
