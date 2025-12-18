@@ -42,7 +42,11 @@
 
   const loadGobogConfig = await waitFor(() => window.loadGobogConfig, 12000);
   if (!loadGobogConfig) {
-    alert("Fatal: loadGobogConfig() belum ada.\nPastikan app-config.js ke-load sebelum presale.js.\n\nTIP: di app-config.js tambahin: window.loadGobogConfig = loadGobogConfig;");
+    alert(
+      "Fatal: loadGobogConfig() belum ada.\n" +
+      "Pastikan app-config.js ke-load sebelum presale.js.\n\n" +
+      "TIP: di app-config.js tambahin: window.loadGobogConfig = loadGobogConfig;"
+    );
     return;
   }
 
@@ -106,19 +110,17 @@
   cfg = cfg || {};
   cfg.CHAIN_ID = Number(cfg.CHAIN_ID || 56);
   cfg.CHAIN_NAME = cfg.CHAIN_NAME || "BNB Smart Chain";
-  cfg.RPC_URL = cfg.RPC_URL || "https://bsc-dataseed.binance.org/";
+  // PATCH: default RPC yang lebih aman
+  cfg.RPC_URL = (cfg.RPC_URL || "https://bsc-dataseed.bnbchain.org").replace(/\s+/g, "");
   cfg.EXPLORER_BASE = String(cfg.EXPLORER_BASE || "https://bscscan.com").replace(/\/$/, "");
   cfg.SITE_URL = cfg.SITE_URL || window.location.origin;
 
-  // decimals: default sementara, nanti kita coba auto-detect via decimals()
   cfg.USDT_DECIMALS = Number(cfg.USDT_DECIMALS ?? 18);
   cfg.TOKEN_DECIMALS = Number(cfg.TOKEN_DECIMALS ?? 18);
 
   cfg.BASE_RATE_GOBG_PER_USDT = Number(cfg.BASE_RATE_GOBG_PER_USDT || 15);
   cfg.USE_PHASE_RATE_FOR_ESTIMATE = Boolean(cfg.USE_PHASE_RATE_FOR_ESTIMATE);
 
-  // approve behavior: biar sesuai teks "Approve once"
-  // set false kalau mau approve pas sesuai nominal input
   cfg.APPROVE_MAX = (cfg.APPROVE_MAX === undefined) ? true : Boolean(cfg.APPROVE_MAX);
 
   const required = ["USDT_ADDRESS", "PRESALE_ADDRESS"];
@@ -287,14 +289,18 @@
     }
   }
 
-  // Robust WC export detection (UMD beda-beda)
+  // PATCH: Robust WC export detection (UMD beda-beda, termasuk window["@walletconnect/ethereum-provider"])
   function getWCClass() {
-    const g = window.WalletConnectEthereumProvider || window.EthereumProvider || null;
-    if (!g) return null;
-    if (typeof g.init === "function") return g;
-    const cand = g.EthereumProvider || g.default || g?.WalletConnectEthereumProvider;
-    if (cand && typeof cand.init === "function") return cand;
-    return null;
+    const pkg =
+      window.WalletConnectEthereumProvider ||
+      window["@walletconnect/ethereum-provider"] ||
+      window.EthereumProvider ||
+      null;
+
+    if (!pkg) return null;
+
+    const cls = pkg.EthereumProvider || pkg.default || pkg;
+    return (cls && typeof cls.init === "function") ? cls : null;
   }
 
   let boundEip = null;
@@ -308,13 +314,11 @@
         const a = Array.isArray(accounts) ? accounts[0] : null;
         log(`${label}: accountsChanged -> ${a || "-"}`);
         if (!a) {
-          // disconnected-ish
           signer = null; userAddr = null;
           setTxButtonsEnabled(false);
           safeText("wallet", "-");
           return;
         }
-        // refresh signer/address
         if (provider) {
           signer = await provider.getSigner();
           userAddr = await signer.getAddress();
@@ -383,7 +387,6 @@
   async function connectWithEIP1193(eip1193, label) {
     provider = new ethers.BrowserProvider(eip1193);
 
-    // request accounts (WC/injected)
     try { await provider.send("eth_requestAccounts", []); } catch (_) {}
 
     signer = await provider.getSigner();
@@ -419,7 +422,11 @@
   async function ensureWalletConnectProvider() {
     const WC = getWCClass();
     if (!WC || typeof WC.init !== "function") {
-      throw new Error("WalletConnect belum ke-load (init missing).\nCek CDN / file WC UMD.");
+      throw new Error(
+        "WalletConnect belum ke-load (init missing).\n" +
+        "Cek CDN / file WC UMD.\n\n" +
+        "Tips: cek console: window['@walletconnect/ethereum-provider']"
+      );
     }
     if (!cfg.WALLETCONNECT_PROJECT_ID) throw new Error("Missing WALLETCONNECT_PROJECT_ID in config.json");
     if (!cfg.RPC_URL) throw new Error("Missing RPC_URL in config.json");
@@ -445,10 +452,8 @@
   async function connectWC() {
     const p = await ensureWalletConnectProvider();
 
-    // beberapa versi pakai connect(), beberapa pakai enable()
     if (typeof p.connect === "function") await p.connect();
     else if (typeof p.enable === "function") await p.enable();
-    // sisanya: connectWithEIP1193 akan trigger eth_requestAccounts
 
     await connectWithEIP1193(p, "WalletConnect");
   }
@@ -461,7 +466,6 @@
     if (cfg.TOKEN_ADDRESS) tokenRead = new ethers.Contract(cfg.TOKEN_ADDRESS, erc20Abi, rpc);
     presaleRead = new ethers.Contract(cfg.PRESALE_ADDRESS, [...presaleAbi, ...presaleStatsAbi], rpc);
 
-    // auto-detect decimals (kalau contract support)
     try { cfg.USDT_DECIMALS = Number(await usdtRead.decimals()); } catch (_) {}
     try { if (tokenRead) cfg.TOKEN_DECIMALS = Number(await tokenRead.decimals()); } catch (_) {}
   } catch (e) {
@@ -554,8 +558,6 @@
       const amt = parseUnitsSafe(inp.value, cfg.USDT_DECIMALS);
 
       const allowance = await usdt.allowance(userAddr, cfg.PRESALE_ADDRESS);
-
-      // approve once (max) biar ga approve berulang
       const approveValue = cfg.APPROVE_MAX ? ethers.MaxUint256 : amt;
 
       if (allowance >= amt) { log("Allowance already sufficient."); return; }
@@ -621,10 +623,20 @@
   function openModal() {
     if (!backdrop) return;
     if (btnInjected) btnInjected.disabled = !window.ethereum;
-    if (btnWC) btnWC.disabled = !getWCClass(); // << biar gak “klik WC tapi kosong”
+
+    // PATCH: WC disabled kalau class benar-benar tidak ada
+    if (btnWC) {
+      const wcOk = !!getWCClass();
+      btnWC.disabled = !wcOk;
+      // Biar visualnya jelas (opsional)
+      btnWC.style.opacity = wcOk ? "1" : "0.55";
+      btnWC.title = wcOk ? "" : "WalletConnect belum siap (provider UMD belum kebaca).";
+    }
+
     backdrop.classList.add("show");
     backdrop.setAttribute("aria-hidden", "false");
   }
+
   function closeModal() {
     if (!backdrop) return;
     backdrop.classList.remove("show");
