@@ -33,40 +33,28 @@
     return null;
   }
 
-  function loadScriptTag(src) {
-    return new Promise((resolve, reject) => {
-      // jangan dobel load
-      const existed = Array.from(document.scripts).some(s => (s.src || "").includes(src));
-      if (existed) return resolve(src);
-
-      const s = document.createElement("script");
-      s.src = src;
-      s.async = false;
-      s.crossOrigin = "anonymous";
-      s.onload = () => resolve(src);
-      s.onerror = () => reject(new Error("Failed to load: " + src));
-      document.head.appendChild(s);
-    });
-  }
-
-  // ----- dependencies -----
+  // ---------- deps ----------
   const ethers = await waitFor(() => window.ethers, 12000);
   if (!ethers) {
     alert("Fatal: ethers belum ke-load.\nCek koneksi / CDN ethers.");
     return;
   }
 
-  const loadGobogConfig = await waitFor(() => window.loadGobogConfig, 12000);
-  if (!loadGobogConfig) {
-    alert(
-      "Fatal: loadGobogConfig() belum ada.\n" +
-      "Pastikan app-config.js ke-load sebelum presale.js.\n\n" +
-      "TIP: di app-config.js tambahin: window.loadGobogConfig = loadGobogConfig;"
-    );
-    return;
+  // config loader fallback (kalau app-config.js kamu error / gak expose window.loadGobogConfig)
+  async function fallbackLoadGobogConfig() {
+    const res = await fetch("./config.json", { cache: "no-store" });
+    if (!res.ok) throw new Error("Failed to load config.json: " + res.status);
+    const cfg = await res.json();
+    cfg.TOKEN_EXPLORER_URL = (cfg.EXPLORER_BASE || "").replace(/\/$/, "") + "/address/" + cfg.TOKEN_ADDRESS;
+    cfg.PRESALE_EXPLORER_URL = (cfg.EXPLORER_BASE || "").replace(/\/$/, "") + "/address/" + cfg.PRESALE_ADDRESS;
+    return cfg;
   }
 
-  // ----- helpers -----
+  const loadGobogConfig =
+    (await waitFor(() => window.loadGobogConfig, 2500)) ||
+    fallbackLoadGobogConfig;
+
+  // ---------- helpers ----------
   const nowSec = () => Math.floor(Date.now() / 1000);
 
   function formatDDHHMMSS(totalSeconds) {
@@ -112,7 +100,7 @@
     if (el) el.href = href;
   }
 
-  // ----- config -----
+  // ---------- config ----------
   let cfg;
   try {
     cfg = await loadGobogConfig();
@@ -126,7 +114,7 @@
   cfg = cfg || {};
   cfg.CHAIN_ID = Number(cfg.CHAIN_ID || 56);
   cfg.CHAIN_NAME = cfg.CHAIN_NAME || "BNB Smart Chain";
-  cfg.RPC_URL = (cfg.RPC_URL || "https://bsc-dataseed.bnbchain.org").replace(/\s+/g, "");
+  cfg.RPC_URL = String(cfg.RPC_URL || "https://bsc-dataseed.bnbchain.org").trim().replace(/\s+/g, "");
   cfg.EXPLORER_BASE = String(cfg.EXPLORER_BASE || "https://bscscan.com").replace(/\/$/, "");
   cfg.SITE_URL = cfg.SITE_URL || window.location.origin;
 
@@ -154,7 +142,7 @@
     cfg.PRESALE_EXPLORER_URL || `${cfg.EXPLORER_BASE}/address/${cfg.PRESALE_ADDRESS}`
   );
 
-  // ----- ABI -----
+  // ---------- ABI ----------
   const erc20Abi = [
     "function balanceOf(address) view returns (uint256)",
     "function allowance(address owner, address spender) view returns (uint256)",
@@ -177,7 +165,7 @@
     "function sold() view returns (uint256)"
   ];
 
-  // ----- Phase UI -----
+  // ---------- Phase UI ----------
   function buildTimeline() {
     const phases = Array.isArray(cfg.PHASES) ? cfg.PHASES : [];
     const start = Number(cfg.PRESALE_START_TIME || 0);
@@ -269,7 +257,90 @@
     return cfg.BASE_RATE_GOBG_PER_USDT || 15;
   }
 
-  // ----- wallet state -----
+  // ---------- WalletConnect UMD hardening ----------
+  function ensureNodePolyfills() {
+    // ini penting kalau ada error "process is not defined"
+    if (!window.global) window.global = window;
+    if (!window.process) window.process = { env: {} };
+    if (!window.process.env) window.process.env = {};
+  }
+
+  function injectScript(src) {
+    return new Promise((resolve, reject) => {
+      const s = document.createElement("script");
+      s.src = src;
+      s.async = true;
+      s.onload = () => resolve(src);
+      s.onerror = () => reject(new Error("Failed to load script: " + src));
+      document.head.appendChild(s);
+    });
+  }
+
+  const WC_UMD_URLS = [
+    // pakai yang sama dengan HTML kamu (biar konsisten)
+    "https://cdn.jsdelivr.net/npm/@walletconnect/ethereum-provider@2.13.0/dist/index.umd.js",
+    "https://unpkg.com/@walletconnect/ethereum-provider@2.13.0/dist/index.umd.js"
+  ];
+
+  function getWCClass() {
+    // variasi global yang sering muncul di UMD
+    const candList = [
+      window.WalletConnectEthereumProvider,
+      window.EthereumProvider,
+      window["@walletconnect/ethereum-provider"],
+      window.walletconnectEthereumProvider
+    ].filter(Boolean);
+
+    for (const pkg of candList) {
+      const cls = pkg?.EthereumProvider || pkg?.default || pkg;
+      if (cls && typeof cls.init === "function") return cls;
+    }
+    return null;
+  }
+
+  let wcUmdLoadPromise = null;
+
+  async function ensureWalletConnectUMD() {
+    let cls = getWCClass();
+    if (cls) return cls;
+
+    // coba load sendiri (lazy)
+    if (!wcUmdLoadPromise) {
+      wcUmdLoadPromise = (async () => {
+        ensureNodePolyfills();
+        for (const url of WC_UMD_URLS) {
+          try {
+            log("Loading WalletConnect UMD: " + url);
+            await injectScript(url);
+            const found = getWCClass();
+            if (found) {
+              log("WalletConnect UMD OK (global detected).");
+              return true;
+            }
+          } catch (e) {
+            log("WC UMD load failed: " + (e?.message || String(e)));
+          }
+        }
+        return false;
+      })();
+    }
+
+    const ok = await wcUmdLoadPromise;
+    cls = getWCClass();
+    if (!ok || !cls) {
+      throw new Error(
+        "WalletConnect UMD tidak terbaca.\n\n" +
+        "Checklist cepat:\n" +
+        "1) DevTools > Network: cari 'ethereum-provider' harus status 200.\n" +
+        "2) DevTools > Console: ketik 'window.WalletConnectEthereumProvider' harus ada.\n" +
+        "3) Kalau ada error 'process is not defined' berarti script WC crash → polyfill wajib.\n" +
+        "4) Coba matiin adblock/privacy extension (sering ngeblok walletconnect).\n"
+      );
+    }
+    return cls;
+  }
+
+  // ---------- wallet state ----------
   let provider = null;
   let signer = null;
   let userAddr = null;
@@ -302,46 +373,6 @@
       busy = false;
       if (btnConnect) btnConnect.disabled = false;
     }
-  }
-
-  // Robust WC export detection (UMD beda-beda)
-  function getWCClass() {
-    const pkg =
-      window.WalletConnectEthereumProvider ||
-      window["@walletconnect/ethereum-provider"] ||
-      window.EthereumProvider ||
-      null;
-
-    if (!pkg) return null;
-
-    const cls = pkg.EthereumProvider || pkg.default || pkg;
-    return (cls && typeof cls.init === "function") ? cls : null;
-  }
-
-  // Paksa WC UMD tersedia (load ulang + polyfill kalau perlu)
-  async function ensureWalletConnectUMD() {
-    // polyfill supaya bundle WC nggak crash kalau nyari "process"/"global"
-    if (typeof window.process === "undefined") window.process = { env: {} };
-    if (typeof window.global === "undefined") window.global = window;
-
-    if (getWCClass()) return true;
-
-    const urls = [
-      "https://cdn.jsdelivr.net/npm/@walletconnect/ethereum-provider@2.13.0/dist/index.umd.min.js",
-      "https://unpkg.com/@walletconnect/ethereum-provider@2.13.0/dist/index.umd.min.js"
-    ];
-
-    for (const u of urls) {
-      try {
-        await loadScriptTag(u);
-        // kasih waktu event loop buat set global
-        await sleep(50);
-        if (getWCClass()) return true;
-      } catch (e) {
-        log("WC load failed: " + (e?.message || String(e)));
-      }
-    }
-    return !!getWCClass();
   }
 
   let boundEip = null;
@@ -461,20 +492,13 @@
   }
 
   async function ensureWalletConnectProvider() {
-    const ok = await ensureWalletConnectUMD();
-    const WC = getWCClass();
+    const WC = await ensureWalletConnectUMD();
 
-    if (!ok || !WC || typeof WC.init !== "function") {
-      throw new Error(
-        "WalletConnect UMD tidak terbaca.\n" +
-        "Cek Network tab: apakah index.umd.min.js berhasil 200?\n" +
-        "Cek Console: window['@walletconnect/ethereum-provider'] harus ada."
-      );
-    }
     if (!cfg.WALLETCONNECT_PROJECT_ID) throw new Error("Missing WALLETCONNECT_PROJECT_ID in config.json");
     if (!cfg.RPC_URL) throw new Error("Missing RPC_URL in config.json");
 
     if (!wcProvider) {
+      // NOTE penting: kalau kamu pakai domain gobogtoken.com tapi di WC Cloud belum di-allow, nanti error beda lagi.
       wcProvider = await WC.init({
         projectId: cfg.WALLETCONNECT_PROJECT_ID,
         chains: [Number(cfg.CHAIN_ID)],
@@ -483,10 +507,11 @@
         metadata: {
           name: `${cfg.PROJECT_NAME || "GOBOG"} Presale`,
           description: "GOBOG presale dApp",
-          url: cfg.SITE_URL,
+          url: cfg.SITE_URL || window.location.origin,
           icons: [cfg.SITE_ICON || ""].filter(Boolean)
         }
       });
+
       wcProvider.on?.("disconnect", () => log("WalletConnect disconnected"));
     }
     return wcProvider;
@@ -495,13 +520,14 @@
   async function connectWC() {
     const p = await ensureWalletConnectProvider();
 
+    // beberapa versi pakai connect(), beberapa pakai enable()
     if (typeof p.connect === "function") await p.connect();
     else if (typeof p.enable === "function") await p.enable();
 
     await connectWithEIP1193(p, "WalletConnect");
   }
 
-  // ----- read-only stats via RPC -----
+  // ---------- read-only stats via RPC ----------
   let rpc = null, usdtRead = null, tokenRead = null, presaleRead = null;
   try {
     rpc = new ethers.JsonRpcProvider(cfg.RPC_URL);
@@ -657,23 +683,41 @@
     });
   }
 
-  // ----- modal wiring -----
+  // ---------- modal wiring ----------
   const backdrop = $("cmBackdrop");
   const btnInjected = $("cmInjected");
   const btnWC = $("cmWC");
   const btnCancel = $("cmCancel");
 
+  async function prepWCButton() {
+    if (!btnWC) return;
+    btnWC.disabled = true;
+    const original = btnWC.textContent;
+    btnWC.textContent = "WalletConnect (loading...)";
+    btnWC.style.opacity = "0.65";
+    btnWC.title = "Loading WalletConnect provider...";
+
+    try {
+      await ensureWalletConnectUMD();
+      btnWC.disabled = false;
+      btnWC.textContent = original || "WalletConnect (pilih wallet / QR)";
+      btnWC.style.opacity = "1";
+      btnWC.title = "";
+    } catch (e) {
+      btnWC.disabled = true;
+      btnWC.textContent = "WalletConnect (unavailable)";
+      btnWC.style.opacity = "0.55";
+      btnWC.title = e?.message || String(e);
+      log("WC not ready: " + (e?.message || String(e)));
+    }
+  }
+
   function openModal() {
     if (!backdrop) return;
     if (btnInjected) btnInjected.disabled = !window.ethereum;
 
-    // Jangan disable WC lagi. Biarkan klik -> akan auto-load saat connectWC()
-    if (btnWC) {
-      btnWC.disabled = false;
-      btnWC.style.opacity = "1";
-      btnWC.style.pointerEvents = "auto";
-      btnWC.title = "Klik untuk WalletConnect (script akan di-load otomatis jika belum siap).";
-    }
+    // WC: coba siapin saat modal dibuka
+    prepWCButton();
 
     backdrop.classList.add("show");
     backdrop.setAttribute("aria-hidden", "false");
