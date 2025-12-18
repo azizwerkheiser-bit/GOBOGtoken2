@@ -5,7 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>GOBOG Presale</title>
   <meta name="description" content="GOBOG (GOBG) Presale dApp — connect wallet, approve USDT, buy, claim." />
-  <link rel="stylesheet" href="./styles.css?v=73" />
+
+  <!-- (Best-effort) anti-cache for static hosting -->
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
+
+  <link rel="stylesheet" href="./styles.css?v=74" />
   <link rel="icon" href="./assets/gobog.svg" />
 
   <!-- Minimal modal CSS (biar gak ganggu styles.css) -->
@@ -161,14 +167,34 @@
     </div>
   </div>
 
-  <!-- Scripts: defer + berurutan (ini yang bikin WalletConnect gak ngambek) -->
+  <!-- =========================
+       Scripts (urutan penting)
+       ========================= -->
+
+  <!-- ethers (UMD) -->
   <script defer src="https://cdn.jsdelivr.net/npm/ethers@6.14.0/dist/ethers.umd.min.js"></script>
-  <script defer src="https://cdn.jsdelivr.net/npm/@walletconnect/ethereum-provider@2.13.0/dist/index.umd.min.js"></script>
+
+  <!-- WalletConnect Provider (UMD) — load SYNC biar globalnya pasti kebentuk sebelum presale.js jalan -->
+  <script
+    src="https://cdn.jsdelivr.net/npm/@walletconnect/ethereum-provider@2.13.0/dist/index.umd.min.js"
+    crossorigin="anonymous"
+    onerror="window.__WC_LOAD_ERROR__=true; console.error('WalletConnect script failed to load (CDN blocked / offline).');">
+  </script>
+
+  <!-- Normalize global name (biar presale.js gak salah nyari) -->
+  <script>
+    window.WalletConnectEthereumProvider =
+      window.WalletConnectEthereumProvider || window.EthereumProvider;
+
+    if (!window.WalletConnectEthereumProvider) {
+      console.warn("WalletConnect global not found. If connect fails, check CDN/caching/routing.");
+    }
+  </script>
 
   <!-- MUST: config loader before presale.js -->
-  <script defer src="./app-config.js?v=1"></script>
+  <script defer src="./app-config.js?v=20251218a"></script>
 
   <!-- Your logic (bump v biar cache gak nyangkut) -->
-  <script defer src="./presale.js?v=4"></script>
+  <script defer src="./presale.js?v=20251218a"></script>
 </body>
 </html>
