@@ -204,6 +204,7 @@
 
     log("Connected: " + userAddr);
     await refresh();
+    await refreshGlobalStats(); // <-- biar bar langsung update setelah connect
   }
 
   async function connectInjectedOnly() {
@@ -319,13 +320,14 @@
         soldHow = "cap - token.balanceOf(presale)";
       }
 
-      // 3) fallback terakhir (kalau kamu punya rate fixed dan mau): sold ≈ raised * 15
+      // 3) fallback terakhir (kalau kamu punya rate fixed dan mau): sold ≈ raised * rate
       if (sold === null && Number(cfg.BASE_RATE_GOBG_PER_USDT || 0) > 0) {
         const rate = Number(cfg.BASE_RATE_GOBG_PER_USDT);
         sold = raised * rate;
         soldHow = `raised * ${rate}`;
       }
 
+      // ---- existing stats widgets (optional) ----
       const raisedEl = $("raised");
       const soldEl = $("sold");
       const barEl = $("soldBar");
@@ -333,13 +335,29 @@
 
       if (raisedEl) raisedEl.textContent = `${nfmt(raised, 2)} USDT`;
 
-      if (soldEl) {
-        if (sold === null) soldEl.textContent = `- / ${PRESALE_CAP.toLocaleString()}`;
-        else {
-          const pct = PRESALE_CAP > 0 ? Math.min(100, (sold / PRESALE_CAP) * 100) : 0;
-          soldEl.textContent = `${nfmt(sold, 2)} / ${PRESALE_CAP.toLocaleString()} (${pct.toFixed(2)}%)`;
-          if (barEl) barEl.style.width = pct.toFixed(2) + "%";
-        }
+      // ---- NEW: Buy card widgets ----
+      const buySoldText = $("buySoldText");
+      const buySoldBar  = $("buySoldBar");
+      const buyRaisedText = $("buyRaisedText");
+
+      if (buyRaisedText) buyRaisedText.textContent = `Raised: ${nfmt(raised, 2)} USDT`;
+
+      if (sold === null) {
+        if (soldEl) soldEl.textContent = `- / ${PRESALE_CAP.toLocaleString()}`;
+        if (barEl) barEl.style.width = "0%";
+
+        if (buySoldText) buySoldText.textContent = `- / ${PRESALE_CAP.toLocaleString()}`;
+        if (buySoldBar) buySoldBar.style.width = "0%";
+      } else {
+        const pct = PRESALE_CAP > 0 ? Math.min(100, (sold / PRESALE_CAP) * 100) : 0;
+
+        if (soldEl) soldEl.textContent =
+          `${nfmt(sold, 2)} / ${PRESALE_CAP.toLocaleString()} (${pct.toFixed(2)}%)`;
+        if (barEl) barEl.style.width = pct.toFixed(2) + "%";
+
+        if (buySoldText) buySoldText.textContent =
+          `${nfmt(sold, 2)} / ${PRESALE_CAP.toLocaleString()} (${pct.toFixed(2)}%)`;
+        if (buySoldBar) buySoldBar.style.width = pct.toFixed(2) + "%";
       }
 
       if (metaEl) {
