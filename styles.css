@@ -12,6 +12,24 @@
 
   --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
   ----sans: "Noto Sans Javanese", ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+
+  .buy-progress{margin:10px 0 14px 0}
+.buy-progress-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:12px}
+.buy-progress-bottom{margin-top:8px}
+
+.progress{
+  height:12px;border-radius:999px;
+  background:rgba(255,255,255,.08);
+  overflow:hidden;
+  border:1px solid rgba(255,255,255,.12);
+}
+.progress > div{
+  height:100%;
+  width:0%;
+  background:rgba(255,215,0,.85);
+  transition:width .35s ease;
+}
+
 }
 *{ box-sizing:border-box; }
 html,body{ height:100%; }
