@@ -85,8 +85,22 @@
       </div>
 
       <div class="card">
-        <h2>Buy</h2>
-        <label class="label">USDT amount</label>
+  <h2>Buy</h2>
+
+  <!-- Presale progress (near Buy) -->
+  <div class="buy-progress">
+    <div class="buy-progress-top">
+      <div class="small muted">Presale progress</div>
+      <div id="buySoldText" class="mono">-</div>
+    </div>
+    <div class="progress"><div id="buySoldBar"></div></div>
+    <div class="buy-progress-bottom small muted">
+      <span id="buyRaisedText">Raised: -</span>
+    </div>
+  </div>
+
+  <label class="label">USDT amount</label>
+
         <input id="amt" class="input" placeholder="e.g. 10" inputmode="decimal" />
 
         <div class="row">
