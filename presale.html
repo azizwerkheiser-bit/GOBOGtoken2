@@ -11,8 +11,42 @@
   <!-- ethers (UMD) -->
   <script src="https://cdn.jsdelivr.net/npm/ethers@6.14.0/dist/ethers.umd.min.js"></script>
 
-  <!-- ❌ REMOVE WalletConnect UMD -->
+  <!-- ❌ REMOVE WalletConnect UMD (biang “UMD missing”) -->
   <!-- <script src="https://cdn.jsdelivr.net/npm/@walletconnect/ethereum-provider@2.13.0/dist/index.umd.js"></script> -->
+
+  <!-- ✅ Load WalletConnect (ESM) and expose as window.EthereumProvider -->
+  <script type="module">
+    import { EthereumProvider } from "https://cdn.jsdelivr.net/npm/@walletconnect/ethereum-provider@2.23.1/+esm";
+    window.EthereumProvider = EthereumProvider;
+  </script>
+
+  <!-- Minimal modal CSS (biar gak ganggu styles.css) -->
+  <style>
+    .cm-backdrop{
+      position:fixed; inset:0;
+      background:rgba(0,0,0,.55);
+      display:none;
+      align-items:center;
+      justify-content:center;
+      padding:16px;
+      z-index:9999;
+    }
+    .cm-backdrop.show{ display:flex; }
+    .cm-card{
+      width:min(460px, 100%);
+      background:#111827;
+      border:1px solid rgba(255,255,255,.12);
+      border-radius:14px;
+      padding:14px;
+      box-shadow:0 20px 60px rgba(0,0,0,.45);
+    }
+    .cm-title{ font-weight:800; margin:0 0 10px 0; font-size:16px; }
+    .cm-sub{ margin:0 0 12px 0; opacity:.75; font-size:13px; }
+    .cm-actions{ display:grid; gap:10px; }
+    .cm-actions button{ width:100%; }
+    .cm-row{ display:flex; gap:10px; }
+    .cm-row button{ flex:1; }
+  </style>
 </head>
 
 <body>
@@ -27,7 +61,7 @@
     <nav class="nav">
       <a href="./index.html">Home</a>
       <a href="#" id="explorerPresale" target="_blank" rel="noreferrer">Explorer</a>
-      <button class="btn small" id="connectBtn">Connect</button>
+      <button class="btn small" id="connectBtn" type="button">Connect</button>
     </nav>
   </header>
 
@@ -56,8 +90,8 @@
         <input id="amt" class="input" placeholder="e.g. 10" inputmode="decimal" />
 
         <div class="row">
-          <button class="btn" id="approveBtn">Approve USDT</button>
-          <button class="btn" id="buyBtn">Buy</button>
+          <button class="btn" id="approveBtn" type="button">Approve USDT</button>
+          <button class="btn" id="buyBtn" type="button">Buy</button>
         </div>
 
         <div class="note small" id="estOut">Estimated output: -</div>
@@ -65,14 +99,14 @@
         <hr class="sep"/>
 
         <h2>Claim</h2>
-        <button class="btn" id="claimBtn">Claim GOBG</button>
+        <button class="btn" id="claimBtn" type="button">Claim GOBG</button>
 
         <hr class="sep"/>
         <h2>Finalize</h2>
         <p class="small muted">
           Finalize is permissionless but only works when the presale is over (time ended or sold out).
         </p>
-        <button class="btn ghost" id="finalizeBtn">Finalize</button>
+        <button class="btn ghost" id="finalizeBtn" type="button">Finalize</button>
       </div>
 
       <div class="card">
@@ -106,10 +140,27 @@
     <div class="small muted">GOBOG Presale UI • ethers v6</div>
   </footer>
 
+  <!-- ✅ Connect Modal -->
+  <div id="cmBackdrop" class="cm-backdrop" aria-hidden="true">
+    <div class="cm-card" role="dialog" aria-modal="true" aria-label="Connect Wallet">
+      <p class="cm-title">Connect Wallet</p>
+      <p class="cm-sub">Pilih cara konek. (Injected = dari web3 browser / extension. WalletConnect = QR / pilih TrustWallet, dll.)</p>
+
+      <div class="cm-actions">
+        <button class="btn" id="cmInjected" type="button">Injected wallet (Web wallet)</button>
+        <button class="btn" id="cmWC" type="button">WalletConnect (QR / pilih wallet)</button>
+        <button class="btn" id="cmTrust" type="button">Trust Wallet App</button>
+        <div class="cm-row">
+          <button class="btn ghost" id="cmCancel" type="button">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- MUST: config loader first -->
   <script src="./app-config.js"></script>
 
-  <!-- Your logic (✅ make it module for WalletConnect import) -->
-  <script type="module" src="./presale.js"></script>
+  <!-- Your logic -->
+  <script src="./presale.js"></script>
 </body>
 </html>
