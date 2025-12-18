@@ -25,6 +25,12 @@
     return ethers.parseUnits(x, d);
   }
 
+  function nfmt(num, digits = 2) {
+    const x = Number(num);
+    if (!isFinite(x)) return "-";
+    return x.toLocaleString(undefined, { maximumFractionDigits: digits });
+  }
+
   // ---- load config ----
   let cfg;
   try {
@@ -35,6 +41,8 @@
     alert("Failed to load config.json. Make sure it exists and is valid JSON.\n\n" + msg);
     return;
   }
+
+  const PRESALE_CAP = Number(cfg.PRESALE_TOKEN_CAP || 500000);
 
   // ---- explorer link ----
   const ex = $("explorerPresale");
@@ -57,6 +65,13 @@
     "function claimable(address user) view returns (uint256)",
     "function endTime() view returns (uint256)",
     "function canFinalizeNow() view returns (bool)"
+  ];
+
+  // Optional stats ABI (kalau kontrak kamu punya)
+  const presaleStatsAbi = [
+    "function totalSold() view returns (uint256)",
+    "function tokensSold() view returns (uint256)",
+    "function sold() view returns (uint256)"
   ];
 
   // ---- Phase UI ----
@@ -164,18 +179,18 @@
   let presale = null;
   let wcProvider = null;
 
+  // Trust deep-link flag
+  let trustDeepLinkNext = false;
+
+  function getWCGlobal() {
+    return window.EthereumProvider || window.WalletConnectEthereumProvider;
+  }
+
   async function connectWithEIP1193(p, label) {
     eip1193 = p;
     provider = new ethers.BrowserProvider(eip1193);
 
-    // Injected butuh request; WalletConnect biasanya cukup connect() saja
-    try {
-      if (!String(label).toLowerCase().includes("walletconnect")) {
-        await eip1193.request?.({ method: "eth_requestAccounts" });
-      } else {
-        await eip1193.request?.({ method: "eth_accounts" });
-      }
-    } catch (_) {}
+    try { await provider.send("eth_requestAccounts", []); } catch (_) {}
 
     signer = await provider.getSigner();
     userAddr = await signer.getAddress();
@@ -196,42 +211,14 @@
     await connectWithEIP1193(window.ethereum, "Injected");
   }
 
-  // ✅ WalletConnect auto-load module dari CDN saat dibutuhkan
-  async function loadEthereumProviderClass() {
-    if (window.EthereumProvider) return window.EthereumProvider;
-
-    const cdns = [
-      "https://cdn.jsdelivr.net/npm/@walletconnect/ethereum-provider@2.23.1/+esm",
-      "https://esm.sh/@walletconnect/ethereum-provider@2.23.1",
-      "https://cdn.skypack.dev/@walletconnect/ethereum-provider@2.23.1"
-    ];
-
-    log("Loading WalletConnect module…");
-    for (const url of cdns) {
-      try {
-        const mod = await import(url);
-        const EP = mod?.EthereumProvider || mod?.default?.EthereumProvider || mod?.default;
-        if (EP) {
-          window.EthereumProvider = EP;
-          log("WalletConnect loaded via: " + url);
-          return EP;
-        }
-      } catch (e) {
-        log("WC load fail: " + url + " :: " + (e?.message || e));
-      }
-    }
-
-    throw new Error("WalletConnect module gagal di-load dari CDN. Coba ganti jaringan/VPN atau cek apakah CDN diblok.");
-  }
-
   async function ensureWalletConnectProvider() {
+    const WC = getWCGlobal();
+    if (!WC) throw new Error("WalletConnect belum ke-load.");
     if (!cfg.WALLETCONNECT_PROJECT_ID) throw new Error("Missing WALLETCONNECT_PROJECT_ID in config.json");
     if (!cfg.RPC_URL) throw new Error("Missing RPC_URL in config.json");
 
-    const EthereumProvider = await loadEthereumProviderClass();
-
     if (!wcProvider) {
-      wcProvider = await EthereumProvider.init({
+      wcProvider = await WC.init({
         projectId: cfg.WALLETCONNECT_PROJECT_ID,
         chains: [Number(cfg.CHAIN_ID)],
         rpcMap: { [Number(cfg.CHAIN_ID)]: cfg.RPC_URL },
@@ -244,16 +231,124 @@
         }
       });
 
-      wcProvider.on?.("disconnect", () => log("WalletConnect disconnected"));
+      wcProvider.on?.("display_uri", (uri) => {
+        if (trustDeepLinkNext) {
+          trustDeepLinkNext = false;
+          const tw = "https://link.trustwallet.com/wc?uri=" + encodeURIComponent(uri);
+          log("Opening TrustWallet…");
+          window.location.href = tw;
+        }
+      });
+
+      wcProvider.on("disconnect", () => log("WalletConnect disconnected"));
     }
 
     return wcProvider;
   }
 
-  async function connectWalletConnect() {
+  async function connectWalletConnectQR() {
     const p = await ensureWalletConnectProvider();
-    await p.connect(); // ✅ ini yang munculin wallet list + QR
+    await p.connect();
     await connectWithEIP1193(p, "WalletConnect");
+  }
+
+  async function connectTrustWalletApp() {
+    trustDeepLinkNext = true;
+    const p = await ensureWalletConnectProvider();
+    await p.connect();
+    await connectWithEIP1193(p, "WalletConnect (TrustWallet)");
+  }
+
+  // ---- Global stats (Raised/Sold) read-only via RPC ----
+  let rpc = null;
+  let usdtRead = null;
+  let tokenRead = null;
+  let presaleRead = null;
+
+  try {
+    if (cfg.RPC_URL) {
+      rpc = new ethers.JsonRpcProvider(cfg.RPC_URL);
+      usdtRead = new ethers.Contract(cfg.USDT_ADDRESS, erc20Abi, rpc);
+
+      if (cfg.TOKEN_ADDRESS) {
+        tokenRead = new ethers.Contract(cfg.TOKEN_ADDRESS, erc20Abi, rpc);
+      }
+
+      // try optional sold() view (kalau kontrak punya)
+      presaleRead = new ethers.Contract(cfg.PRESALE_ADDRESS, [...presaleAbi, ...presaleStatsAbi], rpc);
+    }
+  } catch (e) {
+    log("RPC init error: " + (e?.message || String(e)));
+  }
+
+  async function trySoldFromContract() {
+    if (!presaleRead) return null;
+    const fns = ["totalSold", "tokensSold", "sold"];
+    for (const fn of fns) {
+      try {
+        const v = await presaleRead[fn]();
+        return { method: `presale.${fn}()`, raw: v };
+      } catch (_) {}
+    }
+    return null;
+  }
+
+  async function refreshGlobalStats() {
+    try {
+      if (!usdtRead) return;
+
+      // Raised = USDT balance di kontrak presale (karena USDT ditahan sampai finalize)
+      const raisedRaw = await usdtRead.balanceOf(cfg.PRESALE_ADDRESS);
+      const raised = parseFloat(ethers.formatUnits(raisedRaw, cfg.USDT_DECIMALS));
+
+      let sold = null;
+      let soldHow = "";
+
+      // 1) kalau kontrak punya totalSold()
+      const soldFromView = await trySoldFromContract();
+      if (soldFromView) {
+        sold = parseFloat(ethers.formatUnits(soldFromView.raw, cfg.TOKEN_DECIMALS));
+        soldHow = soldFromView.method;
+      }
+
+      // 2) fallback: cap - token balance di kontrak presale
+      if (sold === null && tokenRead && PRESALE_CAP > 0) {
+        const remainRaw = await tokenRead.balanceOf(cfg.PRESALE_ADDRESS);
+        const remain = parseFloat(ethers.formatUnits(remainRaw, cfg.TOKEN_DECIMALS));
+        sold = Math.max(0, PRESALE_CAP - remain);
+        soldHow = "cap - token.balanceOf(presale)";
+      }
+
+      // 3) fallback terakhir (kalau kamu punya rate fixed dan mau): sold ≈ raised * 15
+      if (sold === null && Number(cfg.BASE_RATE_GOBG_PER_USDT || 0) > 0) {
+        const rate = Number(cfg.BASE_RATE_GOBG_PER_USDT);
+        sold = raised * rate;
+        soldHow = `raised * ${rate}`;
+      }
+
+      const raisedEl = $("raised");
+      const soldEl = $("sold");
+      const barEl = $("soldBar");
+      const metaEl = $("soldMeta");
+
+      if (raisedEl) raisedEl.textContent = `${nfmt(raised, 2)} USDT`;
+
+      if (soldEl) {
+        if (sold === null) soldEl.textContent = `- / ${PRESALE_CAP.toLocaleString()}`;
+        else {
+          const pct = PRESALE_CAP > 0 ? Math.min(100, (sold / PRESALE_CAP) * 100) : 0;
+          soldEl.textContent = `${nfmt(sold, 2)} / ${PRESALE_CAP.toLocaleString()} (${pct.toFixed(2)}%)`;
+          if (barEl) barEl.style.width = pct.toFixed(2) + "%";
+        }
+      }
+
+      if (metaEl) {
+        if (soldHow) metaEl.textContent = `Stats mode: ${soldHow} • (Raised dari USDT balance presale).`;
+        else metaEl.textContent = `Raised dari USDT balance presale. Sold butuh token balance di presale atau fungsi totalSold().`;
+      }
+    } catch (e) {
+      log("Global stats error: " + (e?.shortMessage || e?.message || String(e)));
+    }
   }
 
   async function refresh() {
@@ -289,6 +384,7 @@
       await tx.wait();
       log("Approve confirmed.");
       await refresh();
+      await refreshGlobalStats();
     } catch (e) {
       log("Approve error: " + (e?.shortMessage || e?.message || String(e)));
     }
@@ -310,6 +406,7 @@
       await tx.wait();
       log("Buy confirmed.");
       await refresh();
+      await refreshGlobalStats();
     } catch (e) {
       log("Buy error: " + (e?.shortMessage || e?.message || String(e)));
     }
@@ -322,6 +419,7 @@
       await tx.wait();
       log("Claim confirmed.");
       await refresh();
+      await refreshGlobalStats();
     } catch (e) {
       log("Claim error: " + (e?.shortMessage || e?.message || String(e)));
     }
@@ -339,6 +437,7 @@
       await tx.wait();
       log("Finalize confirmed.");
       await refresh();
+      await refreshGlobalStats();
     } catch (e) {
       log("Finalize error: " + (e?.shortMessage || e?.message || String(e)));
     }
@@ -361,6 +460,7 @@
   const backdrop = $("cmBackdrop");
   const btnInjected = $("cmInjected");
   const btnWC = $("cmWC");
+  const btnTrust = $("cmTrust");
   const btnCancel = $("cmCancel");
 
   function openConnectModal() {
@@ -393,7 +493,17 @@
 
   btnWC?.addEventListener("click", async () => {
     closeConnectModal();
-    try { await connectWalletConnect(); }
+    try { await connectWalletConnectQR(); }
+    catch (err) {
+      const msg = err?.message || String(err);
+      log("Connect error: " + msg);
+      alert("Connect failed: " + msg);
+    }
+  });
+
+  btnTrust?.addEventListener("click", async () => {
+    closeConnectModal();
+    try { await connectTrustWalletApp(); }
     catch (err) {
       const msg = err?.message || String(err);
       log("Connect error: " + msg);
@@ -413,7 +523,11 @@
   $("finalizeBtn")?.addEventListener("click", finalize);
   $("amt")?.addEventListener("input", updateEstimate);
 
+  // refresh loops
   setInterval(() => { if (signer) refresh(); }, 10000);
+  setInterval(() => { refreshGlobalStats(); }, 10000);
 
+  // initial
+  refreshGlobalStats();
   log("UI ready.");
 })();
