@@ -1,21 +1,27 @@
-/* GOBOG Presale UI (hardened) — ethers v6 + WalletConnect v2 (UMD/ESM friendly)
-   Drop-in replacement for presale.js
-
-   Goals:
-   - Robust against missing DOM elements / missing config fields
-   - Robust against WalletConnect global name differences
-   - Clearer errors + fewer silent failures
-   - Prevent double-click / double-tx
-*/
-
 (async function () {
   "use strict";
 
-  // ---------- tiny helpers ----------
   const $ = (id) => document.getElementById(id);
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-  async function waitFor(fn, timeoutMs = 8000, intervalMs = 50) {
+  function log(s) {
+    const logEl = $("log");
+    const ts = new Date().toISOString().replace("T", " ").replace("Z", "");
+    const msg = String(s ?? "");
+    if (logEl) logEl.textContent = `[${ts}] ${msg}\n` + logEl.textContent;
+    try { console.log("[GOBOG]", msg); } catch (_) {}
+  }
+
+  window.addEventListener("unhandledrejection", (e) => {
+    const r = e?.reason;
+    const msg = r?.shortMessage || r?.message || String(r || e);
+    log("Unhandled: " + msg);
+  });
+  window.addEventListener("error", (e) => {
+    log("Error: " + (e?.message || String(e)));
+  });
+
+  async function waitFor(fn, timeoutMs = 12000, intervalMs = 50) {
     const t0 = Date.now();
     while (Date.now() - t0 < timeoutMs) {
       try {
@@ -27,55 +33,22 @@
     return null;
   }
 
-  function safeText(id, text) {
-    const el = $(id);
-    if (el) el.textContent = text;
-  }
-
-  function safeHref(id, href) {
-    const el = $(id);
-    if (el) el.href = href;
-  }
-
-  function nowSec() { return Math.floor(Date.now() / 1000); }
-
-  // Console logger (UI)
-  const logEl = $("log");
-  const log = (s) => {
-    const msg = String(s ?? "");
-    const ts = new Date().toISOString().replace("T", " ").replace("Z", "");
-    if (logEl) logEl.textContent = `[${ts}] ${msg}\n` + logEl.textContent;
-    // also print to devtools
-    try { console.log("[GOBOG]", msg); } catch (_) {}
-  };
-
-  // Catch silent promise errors (biar gak jadi "hantu")
-  window.addEventListener("unhandledrejection", (e) => {
-    const r = e?.reason;
-    const msg = r?.shortMessage || r?.message || String(r || e);
-    log("Unhandled: " + msg);
-  });
-  window.addEventListener("error", (e) => {
-    const msg = e?.message || String(e);
-    log("Error: " + msg);
-  });
-
-  // ---------- dependency sanity ----------
-  const ethersObj = await waitFor(() => window.ethers, 12000);
-  if (!ethersObj) {
-    alert("Fatal: ethers belum ke-load. Cek koneksi / CDN ethers.");
-    return;
-  }
-  const ethers = ethersObj;
-
-  // loadGobogConfig must exist (from app-config.js)
-  const loadCfgFn = await waitFor(() => window.loadGobogConfig, 12000);
-  if (!loadCfgFn) {
-    alert("Fatal: loadGobogConfig() belum ada. Pastikan app-config.js ke-load sebelum presale.js.");
+  // ----- dependencies -----
+  const ethers = await waitFor(() => window.ethers, 12000);
+  if (!ethers) {
+    alert("Fatal: ethers belum ke-load.\nCek koneksi / CDN ethers.");
     return;
   }
 
-  // ---------- formatting ----------
+  const loadGobogConfig = await waitFor(() => window.loadGobogConfig, 12000);
+  if (!loadGobogConfig) {
+    alert("Fatal: loadGobogConfig() belum ada.\nPastikan app-config.js ke-load sebelum presale.js.");
+    return;
+  }
+
+  // ----- helpers -----
+  const nowSec = () => Math.floor(Date.now() / 1000);
+
   function formatDDHHMMSS(totalSeconds) {
     const s = Math.max(0, Math.floor(totalSeconds));
     const dd = Math.floor(s / 86400);
@@ -90,18 +63,11 @@
     try { return ethers.formatUnits(x, d); } catch (_) { return "-"; }
   }
 
-  // Input sanitizer: supports "10", "10.5", "10,5" (ID), and removes thousands commas.
   function sanitizeAmountStr(s) {
     s = String(s || "").trim().replace(/\s+/g, "");
     if (!s) return "";
-    // If looks like decimal-comma (e.g., 10,5) and no dot, convert to dot
-    if (s.includes(",") && !s.includes(".") && /^\d+,\d+$/.test(s)) {
-      s = s.replace(",", ".");
-      return s;
-    }
-    // Otherwise remove commas as thousands separators (e.g., 1,000.25)
-    s = s.replace(/,/g, "");
-    return s;
+    if (s.includes(",") && !s.includes(".") && /^\d+,\d+$/.test(s)) return s.replace(",", ".");
+    return s.replace(/,/g, "");
   }
 
   function parseUnitsSafe(amountStr, decimals) {
@@ -116,35 +82,42 @@
     return x.toLocaleString(undefined, { maximumFractionDigits: digits });
   }
 
-  // ---------- load + normalize config ----------
+  function safeText(id, text) {
+    const el = $(id);
+    if (el) el.textContent = text;
+  }
+
+  function safeHref(id, href) {
+    const el = $(id);
+    if (el) el.href = href;
+  }
+
+  // ----- config -----
   let cfg;
   try {
-    cfg = await loadCfgFn();
+    cfg = await loadGobogConfig();
   } catch (e) {
     const msg = e?.message || String(e);
     log("Config error: " + msg);
-    alert("Failed to load config.json. Make sure it exists & valid JSON.\n\n" + msg);
+    alert("Failed to load config.json.\nMake sure it exists & valid JSON.\n\n" + msg);
     return;
   }
 
-  // Safe defaults (kalau config kelupaan)
   cfg = cfg || {};
   cfg.CHAIN_ID = Number(cfg.CHAIN_ID || 56);
   cfg.CHAIN_NAME = cfg.CHAIN_NAME || "BNB Smart Chain";
   cfg.RPC_URL = cfg.RPC_URL || "https://bsc-dataseed.binance.org/";
-  cfg.EXPLORER_BASE = (cfg.EXPLORER_BASE || "https://bscscan.com").replace(/\/$/, "");
+  cfg.EXPLORER_BASE = String(cfg.EXPLORER_BASE || "https://bscscan.com").replace(/\/$/, "");
   cfg.SITE_URL = cfg.SITE_URL || window.location.origin;
-
   cfg.USDT_DECIMALS = Number(cfg.USDT_DECIMALS ?? 18);
   cfg.TOKEN_DECIMALS = Number(cfg.TOKEN_DECIMALS ?? 18);
-
   cfg.BASE_RATE_GOBG_PER_USDT = Number(cfg.BASE_RATE_GOBG_PER_USDT || 15);
   cfg.USE_PHASE_RATE_FOR_ESTIMATE = Boolean(cfg.USE_PHASE_RATE_FOR_ESTIMATE);
 
-  const REQUIRED = ["USDT_ADDRESS", "PRESALE_ADDRESS"];
-  const missing = REQUIRED.filter((k) => !cfg[k]);
+  const required = ["USDT_ADDRESS", "PRESALE_ADDRESS"];
+  const missing = required.filter((k) => !cfg[k]);
   if (missing.length) {
-    const msg = `Config missing: ${missing.join(", ")}.`;
+    const msg = "Config missing: " + missing.join(", ");
     log(msg);
     alert(msg + "\n\nBuka config.json dan isi address yang benar.");
     return;
@@ -152,10 +125,9 @@
 
   const PRESALE_CAP = Number(cfg.PRESALE_TOKEN_CAP || 500000);
 
-  // Explorer link
   safeHref("explorerPresale", cfg.PRESALE_EXPLORER_URL || `${cfg.EXPLORER_BASE}/address/${cfg.PRESALE_ADDRESS}`);
 
-  // ---------- ABI ----------
+  // ----- ABI -----
   const erc20Abi = [
     "function balanceOf(address) view returns (uint256)",
     "function allowance(address owner, address spender) view returns (uint256)",
@@ -171,14 +143,13 @@
     "function canFinalizeNow() view returns (bool)"
   ];
 
-  // Optional stats ABI (kalau kontrak kamu punya)
   const presaleStatsAbi = [
     "function totalSold() view returns (uint256)",
     "function tokensSold() view returns (uint256)",
     "function sold() view returns (uint256)"
   ];
 
-  // ---------- Phase UI ----------
+  // ----- Phase UI -----
   function buildTimeline() {
     const phases = Array.isArray(cfg.PHASES) ? cfg.PHASES : [];
     const start = Number(cfg.PRESALE_START_TIME || 0);
@@ -188,18 +159,10 @@
     const timeline = phases.map((p) => {
       const durDays = Number(p?.duration_days || 7);
       const durSec = Math.max(1, Math.floor(durDays * 86400));
-      const seg = {
-        name: p?.name || "Phase",
-        gobg_per_1_usdt: p?.gobg_per_1_usdt ?? "X.XXXX",
-        usdt_per_gobg: p?.usdt_per_gobg ?? "X.XXXX",
-        durDays,
-        start: t,
-        end: t + durSec
-      };
+      const seg = { ...p, start: t, end: t + durSec, durDays };
       t += durSec;
       return seg;
     });
-
     return { start, timeline };
   }
 
@@ -212,7 +175,6 @@
 
     const idx = timeline.findIndex((seg) => now >= seg.start && now < seg.end);
     if (idx === -1 && now >= totalEnd) return { idx: timeline.length, phase: null, phaseEnd: totalEnd, timeline };
-
     return { idx, phase: timeline[idx], phaseEnd: timeline[idx].end, timeline };
   }
 
@@ -279,8 +241,7 @@
     return cfg.BASE_RATE_GOBG_PER_USDT || 15;
   }
 
-  // ---------- Wallet/Contracts state ----------
-  let eip1193 = null;
+  // ----- wallet state -----
   let provider = null;
   let signer = null;
   let userAddr = null;
@@ -288,7 +249,6 @@
   let presale = null;
   let wcProvider = null;
 
-  // UI enable/disable
   const btnApprove = $("approveBtn");
   const btnBuy = $("buyBtn");
   const btnClaim = $("claimBtn");
@@ -303,13 +263,9 @@
   }
   setTxButtonsEnabled(false);
 
-  // Prevent double-click / parallel tx
   let busy = false;
   async function runLocked(label, fn) {
-    if (busy) {
-      log(`Busy: ${label} skipped`);
-      return;
-    }
+    if (busy) { log("Busy: " + label); return; }
     busy = true;
     try {
       if (btnConnect) btnConnect.disabled = true;
@@ -320,21 +276,15 @@
     }
   }
 
-  // WalletConnect global getter (UMD/ESM differences)
-  function getWCGlobal() {
-    // after presale.html normalization script:
-    // window.WalletConnectEthereumProvider should exist if WC loaded
-    return window.WalletConnectEthereumProvider || window.EthereumProvider || window.WalletConnectEthereumProvider?.default;
+  function getWCClass() {
+    return window.WalletConnectEthereumProvider || window.EthereumProvider || null;
   }
 
-  // Ensure injected wallet is on right chain (best effort)
   async function ensureInjectedChain() {
     const eth = window.ethereum;
     if (!eth?.request) return;
 
-    const targetId = Number(cfg.CHAIN_ID);
-    const targetHex = "0x" + targetId.toString(16);
-
+    const targetHex = "0x" + Number(cfg.CHAIN_ID).toString(16);
     try {
       const current = await eth.request({ method: "eth_chainId" });
       if (String(current).toLowerCase() === targetHex.toLowerCase()) return;
@@ -348,11 +298,11 @@
           method: "wallet_addEthereumChain",
           params: [{
             chainId: targetHex,
-            chainName: cfg.CHAIN_NAME || "BNB Smart Chain",
+            chainName: cfg.CHAIN_NAME,
             rpcUrls: [cfg.RPC_URL],
             nativeCurrency: { name: "BNB", symbol: "BNB", decimals: 18 },
-            blockExplorerUrls: [cfg.EXPLORER_BASE],
-          }],
+            blockExplorerUrls: [cfg.EXPLORER_BASE]
+          }]
         });
       } else {
         throw e;
@@ -360,49 +310,8 @@
     }
   }
 
-  function attachEip1193Listeners(p) {
-    if (!p?.on) return;
-
-    try {
-      p.on("accountsChanged", (accs) => {
-        log("accountsChanged: " + JSON.stringify(accs || []));
-        // force refresh view
-        if (Array.isArray(accs) && accs[0]) {
-          userAddr = accs[0];
-          safeText("wallet", userAddr);
-          refresh().catch(() => {});
-        }
-      });
-
-      p.on("chainChanged", (chainId) => {
-        log("chainChanged: " + String(chainId));
-        // update network text on next refresh
-        refreshNetworkLabel("chainChanged").catch(() => {});
-      });
-
-      p.on("disconnect", (info) => {
-        log("disconnect: " + JSON.stringify(info || {}));
-        setTxButtonsEnabled(false);
-        safeText("wallet", "-");
-        safeText("netName", "-");
-      });
-    } catch (_) {}
-  }
-
-  async function refreshNetworkLabel(via) {
-    if (!provider) return;
-    try {
-      const net = await provider.getNetwork();
-      safeText("netName", `${cfg.CHAIN_NAME} (cfg ${cfg.CHAIN_ID}) • yours: ${Number(net.chainId)} • via: ${via || "-"}`);
-    } catch (_) {}
-  }
-
-  async function connectWithEIP1193(p, label) {
-    eip1193 = p;
-    attachEip1193Listeners(eip1193);
-
+  async function connectWithEIP1193(eip1193, label) {
     provider = new ethers.BrowserProvider(eip1193);
-
     try { await provider.send("eth_requestAccounts", []); } catch (_) {}
 
     signer = await provider.getSigner();
@@ -413,10 +322,8 @@
     safeText("netName", `${cfg.CHAIN_NAME} (cfg ${cfg.CHAIN_ID}) • yours: ${Number(net.chainId)} • via: ${label}`);
 
     if (Number(net.chainId) !== Number(cfg.CHAIN_ID)) {
-      log(`Wrong network: connected ${Number(net.chainId)} but need ${Number(cfg.CHAIN_ID)}.`);
-      alert(`Wrong network.\n\nConnected: ${Number(net.chainId)}\nRequired: ${Number(cfg.CHAIN_ID)} (${cfg.CHAIN_NAME})`);
-      // still allow reading UI, but tx buttons off
       setTxButtonsEnabled(false);
+      alert(`Wrong network.\n\nConnected: ${Number(net.chainId)}\nRequired: ${Number(cfg.CHAIN_ID)} (${cfg.CHAIN_NAME})`);
     } else {
       setTxButtonsEnabled(true);
     }
@@ -429,22 +336,16 @@
     await refreshGlobalStats();
   }
 
-  async function connectInjectedOnly() {
-    if (!window.ethereum) throw new Error("Injected wallet tidak ditemukan. Coba DApp Browser (Trust/MetaMask) atau extension di desktop.");
+  async function connectInjected() {
+    if (!window.ethereum) throw new Error("Injected wallet tidak ditemukan.\nCoba DApp Browser (Trust/MetaMask) atau extension di desktop.");
     await ensureInjectedChain();
     await connectWithEIP1193(window.ethereum, "Injected");
   }
 
   async function ensureWalletConnectProvider() {
-    // If CDN blocked, presale.html sets __WC_LOAD_ERROR__
-    if (window.__WC_LOAD_ERROR__) {
-      throw new Error("WalletConnect script gagal load (CDN keblok / offline). Coba ganti koneksi, atau host file WC sendiri.");
-    }
-
-    // Wait a bit for WC global in case of slow CDN
-    const WC = await waitFor(() => getWCGlobal(), 12000);
+    const WC = getWCClass();
     if (!WC || typeof WC.init !== "function") {
-      throw new Error("WalletConnect belum ke-load. Pastikan presale.html load WC UMD sebelum presale.js.");
+      throw new Error("WalletConnect belum ke-load.\nKalau CDN keblok, fitur WC memang gak bisa jalan (Injected masih bisa).");
     }
     if (!cfg.WALLETCONNECT_PROJECT_ID) throw new Error("Missing WALLETCONNECT_PROJECT_ID in config.json");
     if (!cfg.RPC_URL) throw new Error("Missing RPC_URL in config.json");
@@ -458,34 +359,23 @@
         metadata: {
           name: `${cfg.PROJECT_NAME || "GOBOG"} Presale`,
           description: "GOBOG presale dApp",
-          url: cfg.SITE_URL || window.location.origin,
+          url: cfg.SITE_URL,
           icons: [cfg.SITE_ICON || ""].filter(Boolean)
         }
       });
-
-      // Note: 'display_uri' event exists in some builds
-      try {
-        wcProvider.on?.("display_uri", (uri) => log("WalletConnect URI displayed (QR modal)."));
-        wcProvider.on?.("disconnect", () => log("WalletConnect disconnected"));
-      } catch (_) {}
+      wcProvider.on?.("disconnect", () => log("WalletConnect disconnected"));
     }
-
     return wcProvider;
   }
 
-  async function connectWalletConnectQR() {
+  async function connectWC() {
     const p = await ensureWalletConnectProvider();
-    // WalletConnect provider usually needs connect() before request
-    if (typeof p.connect === "function") await p.connect();
+    await p.connect();
     await connectWithEIP1193(p, "WalletConnect");
   }
 
-  // ---------- Read-only stats via RPC ----------
-  let rpc = null;
-  let usdtRead = null;
-  let tokenRead = null;
-  let presaleRead = null;
-
+  // ----- read-only stats via RPC -----
+  let rpc = null, usdtRead = null, tokenRead = null, presaleRead = null;
   try {
     rpc = new ethers.JsonRpcProvider(cfg.RPC_URL);
     usdtRead = new ethers.Contract(cfg.USDT_ADDRESS, erc20Abi, rpc);
@@ -497,8 +387,7 @@
 
   async function trySoldFromContract() {
     if (!presaleRead) return null;
-    const fns = ["totalSold", "tokensSold", "sold"];
-    for (const fn of fns) {
+    for (const fn of ["totalSold", "tokensSold", "sold"]) {
       try {
         const v = await presaleRead[fn]();
         return { method: `presale.${fn}()`, raw: v };
@@ -515,25 +404,14 @@
       const raised = parseFloat(ethers.formatUnits(raisedRaw, cfg.USDT_DECIMALS));
 
       let sold = null;
-      let soldHow = "";
 
       const soldFromView = await trySoldFromContract();
-      if (soldFromView) {
-        sold = parseFloat(ethers.formatUnits(soldFromView.raw, cfg.TOKEN_DECIMALS));
-        soldHow = soldFromView.method;
-      }
+      if (soldFromView) sold = parseFloat(ethers.formatUnits(soldFromView.raw, cfg.TOKEN_DECIMALS));
 
       if (sold === null && tokenRead && PRESALE_CAP > 0) {
         const remainRaw = await tokenRead.balanceOf(cfg.PRESALE_ADDRESS);
         const remain = parseFloat(ethers.formatUnits(remainRaw, cfg.TOKEN_DECIMALS));
         sold = Math.max(0, PRESALE_CAP - remain);
-        soldHow = "cap - token.balanceOf(presale)";
-      }
-
-      if (sold === null && Number(cfg.BASE_RATE_GOBG_PER_USDT || 0) > 0) {
-        const rate = Number(cfg.BASE_RATE_GOBG_PER_USDT);
-        sold = raised * rate;
-        soldHow = `raised * ${rate}`;
       }
 
       const buySoldText = $("buySoldText");
@@ -542,7 +420,7 @@
 
       if (buyRaisedText) buyRaisedText.textContent = `Raised: ${nfmt(raised, 2)} USDT`;
 
-      if (sold === null) {
+      if (sold == null) {
         if (buySoldText) buySoldText.textContent = `- / ${PRESALE_CAP.toLocaleString()}`;
         if (buySoldBar) buySoldBar.style.width = "0%";
       } else {
@@ -550,23 +428,19 @@
         if (buySoldText) buySoldText.textContent = `${nfmt(sold, 2)} / ${PRESALE_CAP.toLocaleString()} (${pct.toFixed(2)}%)`;
         if (buySoldBar) buySoldBar.style.width = pct.toFixed(2) + "%";
       }
-
-      // Optional debug in console area
-      // log(`Stats: raised=${nfmt(raised,2)} sold=${sold===null?"-":nfmt(sold,2)} (${soldHow})`);
     } catch (e) {
       log("Global stats error: " + (e?.shortMessage || e?.message || String(e)));
     }
   }
 
   async function refresh() {
-    if (!signer || !userAddr || !usdt || !presale) return;
+    if (!signer) return;
     try {
       const [bal, cl, end] = await Promise.all([
         usdt.balanceOf(userAddr),
         presale.claimable(userAddr),
         presale.endTime()
       ]);
-
       safeText("usdtBal", fmtUnits(bal, cfg.USDT_DECIMALS));
       safeText("claimable", fmtUnits(cl, cfg.TOKEN_DECIMALS));
       safeText("ends", new Date(Number(end) * 1000).toLocaleString());
@@ -575,193 +449,135 @@
     }
   }
 
-  // ---------- tx actions ----------
-  function requireConnected() {
-    if (!signer || !userAddr || !usdt || !presale) {
-      alert("Wallet belum connect.");
-      return false;
+  function updateEstimate() {
+    const estEl = $("estOut");
+    const inp = $("amt");
+    if (!estEl || !inp) return;
+
+    const raw = sanitizeAmountStr(inp.value);
+    const x = Number(raw);
+    if (!raw || !isFinite(x) || x <= 0) {
+      estEl.textContent = "Estimated output: -";
+      return;
     }
-    return true;
+    const rate = cfg.USE_PHASE_RATE_FOR_ESTIMATE ? getUiTokensPerUsdt() : (cfg.BASE_RATE_GOBG_PER_USDT || 15);
+    estEl.textContent = `Estimated output: ${(x * rate).toLocaleString()} GOBG`;
   }
 
   async function approveUSDT() {
-    if (!requireConnected()) return;
-
-    const amtStrRaw = $("amt")?.value || "";
-    const amtStr = sanitizeAmountStr(amtStrRaw);
-    if (!amtStr) return alert("Enter USDT amount first.");
-
-    let amt;
-    try { amt = parseUnitsSafe(amtStr, cfg.USDT_DECIMALS); }
-    catch (_) { return alert("Invalid amount."); }
-
     await runLocked("approve", async () => {
-      try {
-        const allowance = await usdt.allowance(userAddr, cfg.PRESALE_ADDRESS);
-        if (allowance >= amt) {
-          log("Allowance already sufficient.");
-          return;
-        }
-        const tx = await usdt.approve(cfg.PRESALE_ADDRESS, amt);
-        log("Approve tx: " + tx.hash);
-        await tx.wait();
-        log("Approve confirmed.");
-        await refresh();
-        await refreshGlobalStats();
-      } catch (e) {
-        log("Approve error: " + (e?.shortMessage || e?.message || String(e)));
-      }
+      const inp = $("amt");
+      if (!inp) return;
+      const amt = parseUnitsSafe(inp.value, cfg.USDT_DECIMALS);
+
+      const allowance = await usdt.allowance(userAddr, cfg.PRESALE_ADDRESS);
+      if (allowance >= amt) { log("Allowance already sufficient."); return; }
+
+      const tx = await usdt.approve(cfg.PRESALE_ADDRESS, amt);
+      log("Approve tx: " + tx.hash);
+      await tx.wait();
+      log("Approve confirmed.");
+      await refresh();
+      await refreshGlobalStats();
     });
   }
 
   async function buy() {
-    if (!requireConnected()) return;
-
-    const amtStrRaw = $("amt")?.value || "";
-    const amtStr = sanitizeAmountStr(amtStrRaw);
-    if (!amtStr) return alert("Enter USDT amount first.");
-
-    let amt;
-    try { amt = parseUnitsSafe(amtStr, cfg.USDT_DECIMALS); }
-    catch (_) { return alert("Invalid amount."); }
-
     await runLocked("buy", async () => {
-      try {
-        const allowance = await usdt.allowance(userAddr, cfg.PRESALE_ADDRESS);
-        if (allowance < amt) {
-          log("Allowance too low. Click Approve first.");
-          return;
-        }
-        const tx = await presale.buy(amt);
-        log("Buy tx: " + tx.hash);
-        await tx.wait();
-        log("Buy confirmed.");
-        await refresh();
-        await refreshGlobalStats();
-      } catch (e) {
-        log("Buy error: " + (e?.shortMessage || e?.message || String(e)));
-      }
+      const inp = $("amt");
+      if (!inp) return;
+      const amt = parseUnitsSafe(inp.value, cfg.USDT_DECIMALS);
+
+      const allowance = await usdt.allowance(userAddr, cfg.PRESALE_ADDRESS);
+      if (allowance < amt) { log("Allowance too low. Click Approve first."); return; }
+
+      const tx = await presale.buy(amt);
+      log("Buy tx: " + tx.hash);
+      await tx.wait();
+      log("Buy confirmed.");
+      await refresh();
+      await refreshGlobalStats();
     });
   }
 
   async function claim() {
-    if (!requireConnected()) return;
-
     await runLocked("claim", async () => {
-      try {
-        const tx = await presale.claim();
-        log("Claim tx: " + tx.hash);
-        await tx.wait();
-        log("Claim confirmed.");
-        await refresh();
-        await refreshGlobalStats();
-      } catch (e) {
-        log("Claim error: " + (e?.shortMessage || e?.message || String(e)));
-      }
+      const tx = await presale.claim();
+      log("Claim tx: " + tx.hash);
+      await tx.wait();
+      log("Claim confirmed.");
+      await refresh();
+      await refreshGlobalStats();
     });
   }
 
   async function finalize() {
-    if (!requireConnected()) return;
-
     await runLocked("finalize", async () => {
-      try {
-        const ok = await presale.canFinalizeNow();
-        if (!ok) {
-          log("Cannot finalize yet (time not ended / not sold out).");
-          return;
-        }
-        const tx = await presale.finalize();
-        log("Finalize tx: " + tx.hash);
-        await tx.wait();
-        log("Finalize confirmed.");
-        await refresh();
-        await refreshGlobalStats();
-      } catch (e) {
-        log("Finalize error: " + (e?.shortMessage || e?.message || String(e)));
-      }
+      const ok = await presale.canFinalizeNow();
+      if (!ok) { log("Cannot finalize yet (time not ended / not sold out)."); return; }
+
+      const tx = await presale.finalize();
+      log("Finalize tx: " + tx.hash);
+      await tx.wait();
+      log("Finalize confirmed.");
+      await refresh();
+      await refreshGlobalStats();
     });
   }
 
-  function updateEstimate() {
-    const estEl = $("estOut");
-    const inEl = $("amt");
-    if (!estEl || !inEl) return;
-
-    const amtStr = sanitizeAmountStr(inEl.value || "");
-    if (!amtStr) { estEl.textContent = "Estimated output: -"; return; }
-
-    const x = Number(amtStr);
-    if (!isFinite(x) || x <= 0) { estEl.textContent = "Estimated output: -"; return; }
-
-    const rate = cfg.USE_PHASE_RATE_FOR_ESTIMATE ? getUiTokensPerUsdt() : (cfg.BASE_RATE_GOBG_PER_USDT || 15);
-    const out = x * rate;
-    const tag = cfg.USE_PHASE_RATE_FOR_ESTIMATE ? "UI phase rate" : "Base rate";
-    estEl.textContent = `Estimated output (${tag}): ${out.toLocaleString()} GOBG`;
-  }
-
-  // ---------- Connect Modal ----------
+  // ----- modal wiring -----
   const backdrop = $("cmBackdrop");
   const btnInjected = $("cmInjected");
   const btnWC = $("cmWC");
   const btnCancel = $("cmCancel");
 
-  function openConnectModal() {
+  function openModal() {
     if (!backdrop) return;
     if (btnInjected) btnInjected.disabled = !window.ethereum;
     backdrop.classList.add("show");
     backdrop.setAttribute("aria-hidden", "false");
   }
-
-  function closeConnectModal() {
+  function closeModal() {
     if (!backdrop) return;
     backdrop.classList.remove("show");
     backdrop.setAttribute("aria-hidden", "true");
   }
 
-  backdrop?.addEventListener("click", (e) => {
-    if (e.target === backdrop) closeConnectModal();
-  });
-  btnCancel?.addEventListener("click", closeConnectModal);
+  backdrop?.addEventListener("click", (e) => { if (e.target === backdrop) closeModal(); });
+  btnCancel?.addEventListener("click", closeModal);
 
   btnInjected?.addEventListener("click", async () => {
-    closeConnectModal();
-    try { await connectInjectedOnly(); }
+    closeModal();
+    try { await connectInjected(); }
     catch (err) {
       const msg = err?.message || String(err);
       log("Connect error: " + msg);
-      alert("Connect failed: " + msg);
+      alert("Connect failed:\n" + msg);
     }
   });
 
   btnWC?.addEventListener("click", async () => {
-    closeConnectModal();
-    try { await connectWalletConnectQR(); }
+    closeModal();
+    try { await connectWC(); }
     catch (err) {
       const msg = err?.message || String(err);
       log("Connect error: " + msg);
-      alert("Connect failed: " + msg);
+      alert("Connect failed:\n" + msg);
     }
   });
 
-  // ---------- bind UI ----------
-  btnConnect?.addEventListener("click", (e) => {
-    e.preventDefault();
-    openConnectModal();
-  });
+  $("connectBtn")?.addEventListener("click", (e) => { e.preventDefault(); openModal(); });
 
-  btnApprove?.addEventListener("click", approveUSDT);
-  btnBuy?.addEventListener("click", buy);
-  btnClaim?.addEventListener("click", claim);
-  btnFinalize?.addEventListener("click", finalize);
+  $("approveBtn")?.addEventListener("click", approveUSDT);
+  $("buyBtn")?.addEventListener("click", buy);
+  $("claimBtn")?.addEventListener("click", claim);
+  $("finalizeBtn")?.addEventListener("click", finalize);
   $("amt")?.addEventListener("input", updateEstimate);
 
-  // refresh loops
-  setInterval(() => { if (signer) refresh().catch(() => {}); }, 10000);
-  setInterval(() => { refreshGlobalStats().catch(() => {}); }, 10000);
+  setInterval(() => { if (signer) refresh(); }, 10000);
+  setInterval(() => { refreshGlobalStats(); }, 10000);
 
-  // initial
+  refreshGlobalStats();
   updateEstimate();
-  refreshGlobalStats().catch(() => {});
-  log("UI ready (hardened).");
+  log("UI ready.");
 })();
