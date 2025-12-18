@@ -12,7 +12,7 @@
   <script src="https://cdn.jsdelivr.net/npm/ethers@6.14.0/dist/ethers.umd.min.js"></script>
 
   <!-- WalletConnect Ethereum Provider (UMD) -->
-  <script src="https://unpkg.com/@walletconnect/ethereum-provider@2.13.0/dist/index.umd.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@walletconnect/ethereum-provider@2.13.0/dist/index.umd.js"></script>
 </head>
 
 <body>
@@ -28,7 +28,6 @@
       <a href="./index.html">Home</a>
       <a href="#" id="explorerPresale" target="_blank" rel="noreferrer">Explorer</a>
       <button class="btn small" id="connectBtn">Connect</button>
-      <button class="btn small ghost" id="connectQrBtn">Connect (QR)</button>
     </nav>
   </header>
 
@@ -110,7 +109,7 @@
   <!-- MUST: config loader first -->
   <script src="./app-config.js"></script>
 
-  <!-- Your logic (connect, approve, buy, claim, phases, etc) -->
+  <!-- Your logic -->
   <script src="./presale.js"></script>
 </body>
 </html>
