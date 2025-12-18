@@ -164,14 +164,18 @@
   let presale = null;
   let wcProvider = null;
 
-  // Trust deep-link flag
-  let trustDeepLinkNext = false;
-
   async function connectWithEIP1193(p, label) {
     eip1193 = p;
     provider = new ethers.BrowserProvider(eip1193);
 
-    try { await provider.send("eth_requestAccounts", []); } catch (_) {}
+    // Injected butuh request; WalletConnect biasanya cukup connect() saja
+    try {
+      if (!String(label).toLowerCase().includes("walletconnect")) {
+        await eip1193.request?.({ method: "eth_requestAccounts" });
+      } else {
+        await eip1193.request?.({ method: "eth_accounts" });
+      }
+    } catch (_) {}
 
     signer = await provider.getSigner();
     userAddr = await signer.getAddress();
@@ -192,7 +196,7 @@
     await connectWithEIP1193(window.ethereum, "Injected");
   }
 
-  // ✅ WalletConnect: auto-load module dari CDN saat dibutuhkan (ga ngandelin presale.html)
+  // ✅ WalletConnect auto-load module dari CDN saat dibutuhkan
   async function loadEthereumProviderClass() {
     if (window.EthereumProvider) return window.EthereumProvider;
 
@@ -206,17 +210,12 @@
     for (const url of cdns) {
       try {
         const mod = await import(url);
-        const EP =
-          mod?.EthereumProvider ||
-          mod?.default?.EthereumProvider ||
-          mod?.default;
-
+        const EP = mod?.EthereumProvider || mod?.default?.EthereumProvider || mod?.default;
         if (EP) {
-          window.EthereumProvider = EP; // cache global
+          window.EthereumProvider = EP;
           log("WalletConnect loaded via: " + url);
           return EP;
         }
-        log("WC module loaded but no EthereumProvider export: " + url);
       } catch (e) {
         log("WC load fail: " + url + " :: " + (e?.message || e));
       }
@@ -245,33 +244,16 @@
         }
       });
 
-      // Deep link to TrustWallet if requested
-      wcProvider.on?.("display_uri", (uri) => {
-        if (trustDeepLinkNext) {
-          trustDeepLinkNext = false;
-          const tw = "https://link.trustwallet.com/wc?uri=" + encodeURIComponent(uri);
-          log("Opening TrustWallet…");
-          window.location.href = tw;
-        }
-      });
-
       wcProvider.on?.("disconnect", () => log("WalletConnect disconnected"));
     }
 
     return wcProvider;
   }
 
-  async function connectWalletConnectQR() {
+  async function connectWalletConnect() {
     const p = await ensureWalletConnectProvider();
-    await p.connect();
+    await p.connect(); // ✅ ini yang munculin wallet list + QR
     await connectWithEIP1193(p, "WalletConnect");
-  }
-
-  async function connectTrustWalletApp() {
-    trustDeepLinkNext = true;
-    const p = await ensureWalletConnectProvider();
-    await p.connect();
-    await connectWithEIP1193(p, "WalletConnect (TrustWallet)");
   }
 
   async function refresh() {
@@ -375,11 +357,10 @@
     $("estOut").textContent = `Estimated output (${tag}): ${out.toLocaleString()} GOBG`;
   }
 
-  // ---- Connect Modal (new, minimal) ----
+  // ---- Connect Modal ----
   const backdrop = $("cmBackdrop");
   const btnInjected = $("cmInjected");
   const btnWC = $("cmWC");
-  const btnTrust = $("cmTrust");
   const btnCancel = $("cmCancel");
 
   function openConnectModal() {
@@ -412,17 +393,7 @@
 
   btnWC?.addEventListener("click", async () => {
     closeConnectModal();
-    try { await connectWalletConnectQR(); }
-    catch (err) {
-      const msg = err?.message || String(err);
-      log("Connect error: " + msg);
-      alert("Connect failed: " + msg);
-    }
-  });
-
-  btnTrust?.addEventListener("click", async () => {
-    closeConnectModal();
-    try { await connectTrustWalletApp(); }
+    try { await connectWalletConnect(); }
     catch (err) {
       const msg = err?.message || String(err);
       log("Connect error: " + msg);
