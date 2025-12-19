@@ -4,6 +4,11 @@
   "TWITTER": "@GOBOGtoken",
   "TWITTER_URL": "https://x.com/GOBOGtoken",
 
+  "TELEGRAM": "Join Telegram",
+  "TELEGRAM_URL": "https://t.me/GOBOGcommunity",
+  "TELEGRAM_NEWS": "Official Channel",
+  "TELEGRAM_NEWS_URL": "https://t.me/GOBOGofficial",
+
   "CHAIN_ID": 56,
   "CHAIN_NAME": "BNB Smart Chain",
   "RPC_URL": "https://bsc-dataseed.bnbchain.org",
