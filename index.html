@@ -12,6 +12,31 @@
 
   <link rel="stylesheet" href="./styles.css?v=72" />
   <link rel="icon" href="./assets/gobog.svg" />
+
+  <!-- mini style patch: bikin link jadi blok/tombol -->
+  <style>
+    .linkbtn{
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 10px 14px;
+      border-radius: 14px;
+      border: 1px solid rgba(255, 215, 0, 0.35);
+      background: rgba(255, 215, 0, 0.08);
+      text-decoration: none;
+      font-weight: 650;
+      line-height: 1;
+      white-space: nowrap;
+    }
+    .linkbtn:hover{ filter: brightness(1.08); }
+    .linkbtn:active{ transform: translateY(1px); }
+
+    /* bikin kolom kanan kelihatan “rapi blok” */
+    .kv .linkbtn{ min-width: 180px; }
+    @media (max-width: 560px){
+      .kv .linkbtn{ width: 100%; min-width: 0; }
+    }
+  </style>
 </head>
 
 <body>
@@ -76,11 +101,16 @@
         <h3>Status & Official Links</h3>
         <div class="kv">
           <div>Twitter</div>
-          <div><a href="#" id="twLink" target="_blank" rel="noreferrer">@gobog</a></div>
+          <div><a href="#" id="twLink" class="linkbtn" target="_blank" rel="noreferrer">To Twitter</a></div>
+
+          <div>Telegram</div>
+          <div><a href="#" id="tgLink" class="linkbtn" target="_blank" rel="noreferrer">Join Telegram</a></div>
+
           <div>Token Contract</div>
-          <div><a href="#" id="tokenExplorer" target="_blank" rel="noreferrer">view on explorer</a></div>
+          <div><a href="#" id="tokenExplorer" class="linkbtn" target="_blank" rel="noreferrer">View Contract</a></div>
+
           <div>Presale</div>
-          <div><a href="./presale.html">presale.html</a></div>
+          <div><a class="linkbtn" href="./presale.html">Presale Page</a></div>
         </div>
 
         <hr class="sep"/>
@@ -164,20 +194,23 @@
 
           <div class="kv">
             <div>Twitter</div>
-            <div><a id="twLink2" href="#" target="_blank" rel="noreferrer">@gobog</a></div>
+            <div><a id="twLink2" class="linkbtn" href="#" target="_blank" rel="noreferrer">To Twitter</a></div>
+
+            <div>Telegram</div>
+            <div><a id="tgLink2" class="linkbtn" href="#" target="_blank" rel="noreferrer">Join Telegram</a></div>
 
             <div>Token</div>
             <div class="addr-row">
               <code id="tokenAddr" class="addr mono">0x...</code>
               <button class="btn small ghost copyBtn" data-copy="#tokenAddr">Copy</button>
-              <a id="tokenExplorer2" class="small" href="#" target="_blank" rel="noreferrer">Explorer</a>
+              <a id="tokenExplorer2" class="linkbtn" href="#" target="_blank" rel="noreferrer">Explorer</a>
             </div>
 
             <div>Presale</div>
             <div class="addr-row">
               <code id="presaleAddr" class="addr mono">0x...</code>
               <button class="btn small ghost copyBtn" data-copy="#presaleAddr">Copy</button>
-              <a id="presaleExplorer2" class="small" href="#" target="_blank" rel="noreferrer">Explorer</a>
+              <a id="presaleExplorer2" class="linkbtn" href="#" target="_blank" rel="noreferrer">Explorer</a>
             </div>
 
             <div>USDT</div>
@@ -261,7 +294,6 @@
   <!-- load config helper first -->
   <script src="./app-config.js?v=1"></script>
 
-  <!-- one script to rule them all -->
   <script>
     document.addEventListener('DOMContentLoaded', async () => {
       document.getElementById('year').textContent = new Date().getFullYear();
@@ -277,14 +309,19 @@
         if (presaleAddrEl) presaleAddrEl.textContent = cfg.PRESALE_ADDRESS || '0x...';
         if (usdtAddrEl) usdtAddrEl.textContent = cfg.USDT_ADDRESS || '0x...';
 
-        // Twitter links
+        // Twitter href (text tetep "To Twitter" biar gak kaku)
         const tw = document.getElementById('twLink');
         const tw2 = document.getElementById('twLink2');
-        const twitterText = cfg.TWITTER || '@GOBOGtoken';
         const twitterUrl = cfg.TWITTER_URL || 'https://x.com/GOBOGtoken';
+        if (tw)  tw.href  = twitterUrl;
+        if (tw2) tw2.href = twitterUrl;
 
-        if (tw)  { tw.textContent = twitterText;  tw.href  = twitterUrl; }
-        if (tw2) { tw2.textContent = twitterText; tw2.href = twitterUrl; }
+        // Telegram href
+        const tg = document.getElementById('tgLink');
+        const tg2 = document.getElementById('tgLink2');
+        const telegramUrl = cfg.TELEGRAM_URL || 'https://t.me/GOBOGcommunity';
+        if (tg)  tg.href  = telegramUrl;
+        if (tg2) tg2.href = telegramUrl;
 
         // Explorer links
         const tokenEx = document.getElementById('tokenExplorer');
