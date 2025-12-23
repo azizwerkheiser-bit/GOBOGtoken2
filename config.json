@@ -26,13 +26,13 @@
 
   "PHASES": [
     { "name": "Phase 1", "duration_days": 7, "price_idr_per_gobg": 1000, "usdt_per_gobg": 0.066667, "gobg_per_1_usdt": 15.0 },
-    { "name": "Phase 2", "duration_days": 7, "price_idr_per_gobg": 1500, "usdt_per_gobg": 0.1,      "gobg_per_1_usdt": 10.0 },
-    { "name": "Phase 3", "duration_days": 7, "price_idr_per_gobg": 2000, "usdt_per_gobg": 0.133333, "gobg_per_1_usdt": 7.5 },
-    { "name": "Phase 4", "duration_days": 7, "price_idr_per_gobg": 2500, "usdt_per_gobg": 0.166667, "gobg_per_1_usdt": 6.0 },
-    { "name": "Phase 5", "duration_days": 7, "price_idr_per_gobg": 3000, "usdt_per_gobg": 0.2,      "gobg_per_1_usdt": 5.0 },
-    { "name": "Phase 6", "duration_days": 7, "price_idr_per_gobg": 3500, "usdt_per_gobg": 0.233333, "gobg_per_1_usdt": 4.285714 },
-    { "name": "Phase 7", "duration_days": 7, "price_idr_per_gobg": 4000, "usdt_per_gobg": 0.266667, "gobg_per_1_usdt": 3.75 },
-    { "name": "Phase 8", "duration_days": 7, "price_idr_per_gobg": 4500, "usdt_per_gobg": 0.3,      "gobg_per_1_usdt": 3.333333 },
+    { "name": "Phase 2", "duration_days": 7, "price_idr_per_gobg": 1000, "usdt_per_gobg": 0.066667, "gobg_per_1_usdt": 15.0 },
+    { "name": "Phase 3", "duration_days": 7, "price_idr_per_gobg": 1000, "usdt_per_gobg": 0.066667, "gobg_per_1_usdt": 15.0 },
+    { "name": "Phase 4", "duration_days": 7, "price_idr_per_gobg": 1000, "usdt_per_gobg": 0.066667, "gobg_per_1_usdt": 15.0 },
+    { "name": "Phase 5", "duration_days": 7, "price_idr_per_gobg": 1000, "usdt_per_gobg": 0.066667, "gobg_per_1_usdt": 15.0 },
+    { "name": "Phase 6", "duration_days": 7, "price_idr_per_gobg": 1000, "usdt_per_gobg": 0.066667, "gobg_per_1_usdt": 15.0 },
+    { "name": "Phase 7", "duration_days": 7, "price_idr_per_gobg": 1000, "usdt_per_gobg": 0.066667, "gobg_per_1_usdt": 15.0 },
+    { "name": "Phase 8", "duration_days": 7, "price_idr_per_gobg": 1000, "usdt_per_gobg": 0.066667, "gobg_per_1_usdt": 15.0 },
     { "name": "Phase 9", "duration_days": 4, "price_idr_per_gobg": 1000, "usdt_per_gobg": 0.066667, "gobg_per_1_usdt": 15.0 }
   ],
 
