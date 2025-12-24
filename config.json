@@ -46,7 +46,7 @@
     },
     "treasury": {
       "label": "Protocol Treasury",
-      "address": ""
+      "address": "0x7D5984774eC2f744cdc6Fb03ef74F31Cc2416468"
     },
     "reserve": {
       "label": "Reserve Vault",
