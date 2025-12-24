@@ -37,5 +37,24 @@
   ],
 
   "IMPLIED_USDT_IDR_RATE": 15000,
-  "USE_PHASE_RATE_FOR_ESTIMATE": true
+  "USE_PHASE_RATE_FOR_ESTIMATE": true,
+
+  "VESTING_VAULTS": {
+    "team": {
+      "label": "Builder Vault",
+      "address": "0x916c328ef1dAC31C97Ebe5A93c129f180690d7F3"
+    },
+    "treasury": {
+      "label": "Protocol Treasury",
+      "address": ""
+    },
+    "reserve": {
+      "label": "Reserve Vault",
+      "address": ""
+    },
+    "community": {
+      "label": "Community Vault",
+      "address": ""
+    }
+  }
 }
