@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>GOBOG — Vaults / Claim Center</title>
+  <meta name="description" content="GOBOG vesting vaults claim center." />
+
+  <link rel="stylesheet" href="./styles.css?v=72" />
+  <link rel="icon" href="./assets/gobog.svg" />
+
+  <style>
+    .linkbtn{
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 10px 14px;
+      border-radius: 14px;
+      border: 1px solid rgba(255, 215, 0, 0.35);
+      background: rgba(255, 215, 0, 0.08);
+      text-decoration: none;
+      font-weight: 650;
+      line-height: 1;
+      white-space: nowrap;
+    }
+    .linkbtn:hover{ filter: brightness(1.08); }
+    .linkbtn:active{ transform: translateY(1px); }
+
+    .grid2tight{
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+    @media (max-width: 780px){
+      .grid2tight{ grid-template-columns: 1fr; }
+    }
+
+    .pill{
+      display:inline-block;
+      padding:6px 10px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.12);
+      background:rgba(255,255,255,.04);
+      font-size:12px;
+      opacity:.85;
+    }
+    .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+    .muted{ opacity:.78; }
+    .krow{
+      display:flex;
+      gap:10px;
+      align-items:center;
+      justify-content:space-between;
+      flex-wrap:wrap;
+      margin-top: 10px;
+    }
+    .addr{
+      font-size: 12px;
+      opacity: .8;
+      word-break: break-all;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+
+<body>
+  <header class="container header">
+    <div class="brand">
+      <img src="./assets/logo.png" alt="GOBOG" class="logo" />
+      <div>
+        <div class="brand-name">GOBOG</div>
+        <div class="brand-sub">Vaults / Claim Center</div>
+      </div>
+    </div>
+
+    <nav class="nav">
+      <a href="./index.html">Home</a>
+      <a href="./presale.html">Presale</a>
+      <a class="btn small" href="./presale.html">Open Presale</a>
+    </nav>
+  </header>
+
+  <main class="container section">
+    <h2>Vesting Vaults</h2>
+    <p class="muted small">
+      This page is a hub. Pick a vault to open the claim page. Vault addresses are loaded from <span class="mono">config.json</span>.
+    </p>
+
+    <div class="grid2tight">
+      <div class="card" id="card-team">
+        <h3>Builder Vault</h3>
+        <p class="small muted">Team vesting claims (linear vesting vault).</p>
+        <div class="krow" id="team-actions"></div>
+        <div class="addr mono" id="team-addr"></div>
+      </div>
+
+      <div class="card" id="card-treasury">
+        <h3>Protocol Treasury</h3>
+        <p class="small muted">Treasury/Ops vesting claims.</p>
+        <div class="krow" id="treasury-actions"></div>
+        <div class="addr mono" id="treasury-addr"></div>
+      </div>
+
+      <div class="card" id="card-reserve">
+        <h3>Reserve Vault</h3>
+        <p class="small muted">Reserve vesting claims (long-term buffer).</p>
+        <div class="krow" id="reserve-actions"></div>
+        <div class="addr mono" id="reserve-addr"></div>
+      </div>
+
+      <div class="card" id="card-community">
+        <h3>Community Vault</h3>
+        <p class="small muted">Community incentives vesting claims.</p>
+        <div class="krow" id="community-actions"></div>
+        <div class="addr mono" id="community-addr"></div>
+      </div>
+    </div>
+
+    <div class="note" style="margin-top: 16px;">
+      <strong>Tip:</strong> If a vault shows <span class="mono">Not configured</span>, set its address in <span class="mono">config.json → VESTING_VAULTS</span>.
+    </div>
+  </main>
+
+  <footer class="container footer">
+    <div>© <span id="year"></span> GOBOG</div>
+    <div class="small muted">Static site • claim hub</div>
+  </footer>
+
+  <script src="./app-config.js?v=1"></script>
+  <script>
+    function setVaultCard(key, cfgItem) {
+      const label = (cfgItem && cfgItem.label) ? cfgItem.label : key;
+      const addr  = (cfgItem && cfgItem.address) ? String(cfgItem.address).trim() : "";
+
+      const actionsEl = document.getElementById(key + "-actions");
+      const addrEl    = document.getElementById(key + "-addr");
+
+      if (!actionsEl || !addrEl) return;
+
+      if (addr) {
+        actionsEl.innerHTML = `
+          <a class="linkbtn" href="./vesting.html?bucket=${key}">Open Claim</a>
+          <a class="linkbtn" href="./presale.html">Back to Presale</a>
+        `;
+        addrEl.textContent = addr;
+      } else {
+        actionsEl.innerHTML = `<span class="pill">Not configured</span>`;
+        addrEl.textContent = `Set VESTING_VAULTS.${key}.address in config.json`;
+      }
+    }
+
+    document.addEventListener("DOMContentLoaded", async () => {
+      document.getElementById("year").textContent = new Date().getFullYear();
+
+      try {
+        const cfg = await loadGobogConfig();
+        const vaults = (cfg && cfg.VESTING_VAULTS) ? cfg.VESTING_VAULTS : {};
+
+        setVaultCard("team", vaults.team || {});
+        setVaultCard("treasury", vaults.treasury || {});
+        setVaultCard("reserve", vaults.reserve || {});
+        setVaultCard("community", vaults.community || {});
+      } catch (e) {
+        console.error(e);
+        // fallback message
+        ["team","treasury","reserve","community"].forEach(k => {
+          const actionsEl = document.getElementById(k + "-actions");
+          const addrEl    = document.getElementById(k + "-addr");
+          if (actionsEl) actionsEl.innerHTML = `<span class="pill">Config load failed</span>`;
+          if (addrEl) addrEl.textContent = (e && e.message) ? e.message : String(e);
+        });
+      }
+    });
+  </script>
+</body>
+</html>
