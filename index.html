@@ -36,15 +36,6 @@
     @media (max-width: 560px){
       .kv .linkbtn{ width: 100%; min-width: 0; }
     }
-
-    /* vault buttons row */
-    .vault-row{
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-      margin-top: 10px;
-    }
-    .vault-row .linkbtn{ min-width: 0; }
   </style>
 </head>
 
@@ -66,9 +57,8 @@
       <a href="#gallery">Gallery</a>
       <a href="#faq">FAQ</a>
 
-      <!-- Vault claim quick access -->
-      <a class="btn small ghost" href="./vesting.html?bucket=team">Builder Vault</a>
-      <a class="btn small ghost" href="./vesting.html?bucket=treasury">Protocol Treasury</a>
+      <!-- NEW: Vaults hub -->
+      <a class="btn small ghost" href="./vaults.html">Vaults</a>
 
       <!-- Whitepaper download button -->
       <a class="btn small ghost"
@@ -93,14 +83,8 @@
 
         <div class="hero-cta">
           <a class="btn" href="./presale.html">Go to Presale dApp</a>
+          <a class="btn ghost" href="./vaults.html">Vaults / Claim Center</a>
           <a class="btn ghost" href="#facts">Quick facts</a>
-        </div>
-
-        <div class="vault-row">
-          <a class="linkbtn" href="./vesting.html?bucket=team">Builder Vault (Team Claim)</a>
-          <a class="linkbtn" href="./vesting.html?bucket=treasury">Protocol Treasury (Claim)</a>
-          <a class="linkbtn" href="./vesting.html?bucket=reserve">Reserve Vault</a>
-          <a class="linkbtn" href="./vesting.html?bucket=community">Community Vault</a>
         </div>
 
         <div id="facts" class="facts">
@@ -142,18 +126,9 @@
           <div>Presale</div>
           <div><a class="linkbtn" href="./presale.html">Presale Page</a></div>
 
-          <!-- Vault claim links -->
-          <div>Builder Vault</div>
-          <div><a class="linkbtn" href="./vesting.html?bucket=team">Team Claim</a></div>
-
-          <div>Protocol Treasury</div>
-          <div><a class="linkbtn" href="./vesting.html?bucket=treasury">Treasury Claim</a></div>
-
-          <div>Reserve Vault</div>
-          <div><a class="linkbtn" href="./vesting.html?bucket=reserve">Reserve Claim</a></div>
-
-          <div>Community Vault</div>
-          <div><a class="linkbtn" href="./vesting.html?bucket=community">Community Claim</a></div>
+          <!-- NEW: vaults hub link -->
+          <div>Vesting Vaults</div>
+          <div><a class="linkbtn" href="./vaults.html">Open Claim Center</a></div>
 
           <!-- Whitepaper link button (download) -->
           <div>Whitepaper</div>
@@ -242,11 +217,8 @@
             Always verify contract addresses on the official links below.
           </div>
 
-          <div class="vault-row">
-            <a class="linkbtn" href="./vesting.html?bucket=team">Builder Vault</a>
-            <a class="linkbtn" href="./vesting.html?bucket=treasury">Protocol Treasury</a>
-            <a class="linkbtn" href="./vesting.html?bucket=reserve">Reserve Vault</a>
-            <a class="linkbtn" href="./vesting.html?bucket=community">Community Vault</a>
+          <div class="note small">
+            Team/Treasury/Reserve/Community vesting claims are available in the <a href="./vaults.html">Vaults / Claim Center</a>.
           </div>
         </div>
 
@@ -280,6 +252,9 @@
               <button class="btn small ghost copyBtn" data-copy="#usdtAddr">Copy</button>
             </div>
 
+            <div>Vesting Vaults</div>
+            <div><a class="linkbtn" href="./vaults.html">Open Claim Center</a></div>
+
             <!-- Whitepaper in this section too -->
             <div>Whitepaper</div>
             <div>
@@ -290,19 +265,6 @@
                 Download Whitepaper
               </a>
             </div>
-
-            <!-- Vault links in contract section -->
-            <div>Team Vesting</div>
-            <div><a class="linkbtn" href="./vesting.html?bucket=team">Open Team Claim</a></div>
-
-            <div>Treasury Vesting</div>
-            <div><a class="linkbtn" href="./vesting.html?bucket=treasury">Open Treasury Claim</a></div>
-
-            <div>Reserve Vesting</div>
-            <div><a class="linkbtn" href="./vesting.html?bucket=reserve">Open Reserve Claim</a></div>
-
-            <div>Community Vesting</div>
-            <div><a class="linkbtn" href="./vesting.html?bucket=community">Open Community Claim</a></div>
           </div>
 
           <hr class="sep" />
