@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>GOBOG Vault Claim</title>
+  <meta name="description" content="Claim vested tokens from GOBOG vesting vaults." />
+  <link rel="stylesheet" href="./styles.css?v=1" />
+
+  <!-- ethers v6 UMD -->
+  <script src="https://cdn.jsdelivr.net/npm/ethers@6.14.0/dist/ethers.umd.min.js"></script>
+
+  <!-- config loader kamu -->
+  <script src="./app-config.js?v=1"></script>
+
+  <style>
+    .card { max-width: 860px; margin: 24px auto; padding: 18px; border-radius: 14px; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08); }
+    .row { display:flex; gap:12px; flex-wrap:wrap; }
+    .row > * { flex:1; min-width: 240px; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size: 12px; word-break: break-all; }
+    .btn { display:inline-block; padding:10px 14px; border-radius: 10px; border: 1px solid rgba(255,255,255,.12); background: rgba(255,255,255,.06); color: #fff; text-decoration:none; cursor:pointer; }
+    .btn.primary { background: rgba(64, 160, 255, .25); border-color: rgba(64,160,255,.45); }
+    .muted { opacity:.8; }
+    .warn { padding: 10px 12px; border-radius: 10px; background: rgba(255,165,0,.14); border: 1px solid rgba(255,165,0,.35); }
+    .ok { padding: 10px 12px; border-radius: 10px; background: rgba(0,200,120,.12); border: 1px solid rgba(0,200,120,.28); }
+    .kv { margin: 8px 0; }
+    .kv b { display:inline-block; width: 180px; }
+  </style>
+</head>
+<body>
+
+  <div class="card">
+    <div class="row" style="align-items:center; justify-content:space-between;">
+      <div>
+        <h2 id="title" style="margin:0 0 6px 0;">Vault Claim</h2>
+        <div class="muted" id="subtitle">Loading config…</div>
+      </div>
+      <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+        <a class="btn" href="./index.html">← Back</a>
+        <button class="btn" id="btnConnect">Connect Wallet</button>
+        <button class="btn primary" id="btnClaim" disabled>Claim (release)</button>
+      </div>
+    </div>
+
+    <div id="statusBox" class="warn" style="margin-top:14px;">
+      Status: belum connect.
+    </div>
+
+    <div style="margin-top:14px;" class="row">
+      <div>
+        <h3 style="margin:0 0 8px 0;">Contract</h3>
+        <div class="kv"><b>Vault:</b> <span id="vaultAddr" class="mono">-</span></div>
+        <div class="kv"><b>Token:</b> <span id="tokenAddr" class="mono">-</span></div>
+        <div class="kv"><b>Beneficiary:</b> <span id="beneficiaryAddr" class="mono">-</span></div>
+      </div>
+
+      <div>
+        <h3 style="margin:0 0 8px 0;">Schedule</h3>
+        <div class="kv"><b>Start:</b> <span id="startTs">-</span></div>
+        <div class="kv"><b>Cliff time:</b> <span id="cliffTs">-</span></div>
+        <div class="kv"><b>End:</b> <span id="endTs">-</span></div>
+        <div class="kv"><b>Duration:</b> <span id="durDays">-</span></div>
+      </div>
+    </div>
+
+    <div style="margin-top:14px;" class="row">
+      <div>
+        <h3 style="margin:0 0 8px 0;">Balances</h3>
+        <div class="kv"><b>Vault balance:</b> <span id="vaultBal">-</span></div>
+        <div class="kv"><b>Released:</b> <span id="released">-</span></div>
+        <div class="kv"><b>Releasable now:</b> <span id="releasable">-</span></div>
+      </div>
+
+      <div>
+        <h3 style="margin:0 0 8px 0;">Wallet</h3>
+        <div class="kv"><b>Connected:</b> <span id="walletAddr" class="mono">-</span></div>
+        <div class="kv"><b>Network:</b> <span id="netName">-</span></div>
+        <div class="kv"><b>Token symbol:</b> <span id="sym">-</span></div>
+      </div>
+    </div>
+
+    <div style="margin-top:14px;" class="muted">
+      Catatan: siapa pun bisa memanggil <span class="mono">release()</span>, tapi tokennya tetap masuk ke <span class="mono">beneficiary</span>. Di UI ini tombol claim diaktifkan hanya kalau wallet kamu = beneficiary (biar nggak ada yang “bayarin gas” tanpa sadar).
+    </div>
+
+  </div>
+
+  <script src="./vesting.js?v=1"></script>
+</body>
+</html>
