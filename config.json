@@ -50,7 +50,7 @@
     },
     "reserve": {
       "label": "Reserve Vault",
-      "address": ""
+      "address": "0x7c177FB4B463542b57F47c41272F4F2d0f1ADd13"
     },
     "community": {
       "label": "Community Vault",
