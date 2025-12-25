@@ -1,4 +1,4 @@
-/* GOBOG Gold Theme - clean, responsive */
+/* GOBOG Gold Theme - clean, responsive (FULL) */
 :root{
   --bg:#0a0703;
   --card:#15100a;
@@ -14,11 +14,20 @@
   --sans: "Noto Sans Javanese", ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
 }
 
-*{ box-sizing:border-box; }
-html,body{ height:100%; }
+/* ===== Base reset / safety ===== */
+*,
+*::before,
+*::after{ box-sizing:border-box; }
+
+html,body{ height:100%; width:100%; margin:0; padding:0; }
+
+img, video, svg, canvas{
+  max-width:100%;
+  height:auto;
+  display:block;
+}
 
 body{
-  margin:0;
   font-family: var(--sans);
   background-color: var(--bg);
   /* Smooth multi-layer glow without visible "cuts" */
@@ -30,7 +39,7 @@ body{
   background-attachment: fixed;
   color: var(--text);
   line-height:1.55;
-  overflow-x:hidden;
+  overflow-x:hidden; /* anti “melebar” di HP */
 }
 
 /* Grain/noise overlay to remove gradient banding */
@@ -48,15 +57,34 @@ body::before{
 a{ color: var(--accent); text-decoration:none; }
 a:hover{ text-decoration:underline; }
 
+/* Container: aman untuk semua lebar layar */
 .container{
-  max-width: 1080px;
+  width: min(1080px, 100% - 2rem);
   margin: 0 auto;
   padding: 18px;
   position: relative;
   z-index: 1; /* keep above noise overlay */
 }
 
-/* --- Buy progress (moved OUT of :root; fixed invalid CSS) --- */
+/* ===== Link button (biar nggak perlu inline <style> di HTML) ===== */
+.linkbtn{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  padding:10px 14px;
+  border-radius:14px;
+  border:1px solid rgba(255,215,0,.35);
+  background: rgba(255,215,0,.08);
+  text-decoration:none;
+  font-weight:650;
+  line-height:1;
+  white-space: nowrap;
+  color: var(--text);
+}
+.linkbtn:hover{ filter: brightness(1.08); text-decoration:none; }
+.linkbtn:active{ transform: translateY(1px); }
+
+/* --- Buy progress --- */
 .buy-progress{ margin:10px 0 14px 0; }
 .buy-progress-top{
   display:flex;
@@ -81,7 +109,7 @@ a:hover{ text-decoration:underline; }
   transition:width .35s ease;
 }
 
-/* --- Header --- */
+/* ===== Header ===== */
 .header{
   display:flex;
   align-items:center;
@@ -94,6 +122,7 @@ a:hover{ text-decoration:underline; }
   -webkit-backdrop-filter: blur(10px);
   border-bottom: 1px solid rgba(59,42,18,.75);
   z-index:10;
+  flex-wrap: wrap; /* penting buat HP */
 }
 
 .brand{ display:flex; align-items:center; gap:14px; }
@@ -103,15 +132,22 @@ a:hover{ text-decoration:underline; }
   border-radius:14px;
   background: transparent;
   border: 1px solid rgba(245,197,66,.22);
-  padding: 2px; /* previously 6px made it smaller */
+  padding: 2px;
   object-fit: contain;
 }
 
 .brand-name{ font-weight:800; letter-spacing:.3px; }
 .brand-sub{ color: var(--muted); font-size:13px; }
-.nav{ display:flex; gap:14px; align-items:center; flex-wrap:wrap; }
 
-/* --- Layout --- */
+.nav{
+  display:flex;
+  gap:14px;
+  align-items:center;
+  flex-wrap:wrap;
+}
+.nav a{ white-space: nowrap; }
+
+/* ===== Layout ===== */
 .hero{
   display:grid;
   grid-template-columns: 1.15fr .85fr;
@@ -127,22 +163,19 @@ a:hover{ text-decoration:underline; }
 .section h2{ margin:0 0 10px; font-size: 24px; }
 .section p{ margin: 0 0 12px; color: rgba(255,247,230,.92); }
 
-/* --- Cards --- */
+/* ===== Cards ===== */
 .card{
   background: linear-gradient(180deg, rgba(21,16,10,.92), rgba(21,16,10,.74));
   border: 1px solid rgba(59,42,18,.95);
   border-radius: 18px;
   padding: 18px;
   box-shadow: 0 10px 30px rgba(0,0,0,.35);
-}
-
-/* Optional: slightly smoother card edges on OLED/high contrast displays */
-.card{
   outline: 1px solid rgba(255,255,255,.03);
   outline-offset: -1px;
 }
 
 .grid2{ display:grid; grid-template-columns: 1fr 1fr; gap:16px; }
+
 .facts{
   display:grid;
   grid-template-columns: 1fr 1fr;
@@ -158,7 +191,12 @@ a:hover{ text-decoration:underline; }
 .fact .k{ color: var(--muted); font-size:12px; }
 .fact .v{ font-weight:700; }
 
-.kv{ display:grid; grid-template-columns: 150px 1fr; gap:10px 12px; }
+/* Key/value grid */
+.kv{
+  display:grid;
+  grid-template-columns: 150px 1fr;
+  gap:10px 12px;
+}
 .kv > div:nth-child(odd){ color: var(--muted); font-size: 13px; }
 .kv > div:nth-child(even){ font-weight: 700; }
 
@@ -172,7 +210,7 @@ a:hover{ text-decoration:underline; }
   color: rgba(255,247,230,.92);
 }
 
-/* --- Buttons --- */
+/* ===== Buttons ===== */
 .btn{
   display:inline-flex;
   align-items:center;
@@ -205,7 +243,7 @@ a:hover{ text-decoration:underline; }
   background: rgba(255,255,255,.06);
 }
 
-/* --- Inputs --- */
+/* ===== Inputs ===== */
 .input{
   width:100%;
   padding: 12px 12px;
@@ -225,7 +263,7 @@ a:hover{ text-decoration:underline; }
 .row{ display:flex; gap:12px; margin-top:12px; flex-wrap:wrap; }
 .sep{ border:0; border-top: 1px solid rgba(59,42,18,.95); margin: 14px 0; }
 
-/* --- Console / Notes --- */
+/* ===== Console / Notes ===== */
 .console{
   margin:0;
   max-height: 260px;
@@ -250,7 +288,7 @@ a:hover{ text-decoration:underline; }
 .muted{ color: var(--muted); }
 .mono{ font-family: var(--mono); }
 
-/* --- Footer --- */
+/* ===== Footer ===== */
 .footer{
   border-top: 1px solid rgba(59,42,18,.75);
   color: rgba(255,247,230,.72);
@@ -265,7 +303,7 @@ a:hover{ text-decoration:underline; }
 .list{ margin: 0; padding-left: 18px; }
 .list li{ margin: 8px 0; color: rgba(255,247,230,.92); }
 
-/* --- Phase UI --- */
+/* ===== Phase UI ===== */
 .phase-list{
   display:flex;
   flex-direction:column;
@@ -299,12 +337,15 @@ a:hover{ text-decoration:underline; }
   box-shadow: 0 0 0 6px rgba(245,197,66,.10);
 }
 
+/* Address rows (anti layout pecah) */
 .addr-row{
   display:flex;
   align-items:center;
   gap:10px;
   flex-wrap:wrap;
 }
+.addr-row > *{ min-width: 0; }
+
 .addr{
   padding:6px 10px;
   border-radius:12px;
@@ -316,10 +357,10 @@ a:hover{ text-decoration:underline; }
   white-space: nowrap;
 }
 
-/* --- Gallery --- */
+/* ===== Gallery ===== */
 .gallery{
   display:grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap:12px;
 }
 .gitem{
@@ -338,7 +379,7 @@ a:hover{ text-decoration:underline; }
 }
 .gitem:hover img{ transform: scale(1.03); }
 
-/* --- FAQ --- */
+/* ===== FAQ ===== */
 .faq{
   padding:10px 0;
   border-top:1px solid rgba(59,42,18,.75);
@@ -354,17 +395,55 @@ a:hover{ text-decoration:underline; }
   color: rgba(255,247,230,.90);
 }
 
-/* --- Responsive --- */
+/* ===== Responsive ===== */
+
+/* Tablet */
 @media (max-width: 900px){
-  .gallery{ grid-template-columns: repeat(2, 1fr); }
-  .gitem img{ height:160px; }
-}
-@media (max-width: 880px){
   .hero{ grid-template-columns: 1fr; }
   .grid2{ grid-template-columns: 1fr; }
+  .gallery{ grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .gitem img{ height:160px; }
+
+  /* header/nav lebih fleksibel */
+  .nav{ justify-content: center; gap:10px; }
+}
+
+/* Mid */
+@media (max-width: 880px){
   .kv{ grid-template-columns: 120px 1fr; }
   .hero h1{ font-size: 34px; }
 }
+
+/* Phone */
+@media (max-width: 600px){
+  body{ font-size: 15px; }
+  .hero h1{ font-size: 28px; }
+
+  /* nav jadi kolom biar nggak numpuk */
+  .nav{
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .nav a{
+    width: 100%;
+    text-align: center;
+  }
+
+  /* tombol & link enak ditap */
+  .btn, .linkbtn{
+    width: 100%;
+  }
+
+  /* address jangan bikin layout meledak */
+  .addr{
+    max-width: 100%;
+    overflow-x: auto;
+    text-overflow: clip;
+  }
+}
+
+/* Very small */
 @media (max-width: 520px){
   .gallery{ grid-template-columns: 1fr; }
 }
